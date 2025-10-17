@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+.clip-triangle {
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+@keyframes marquee {
+  0%   { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+
+  animation: marquee 15s linear infinite;
+}
+

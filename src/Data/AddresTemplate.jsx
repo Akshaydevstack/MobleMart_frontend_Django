@@ -1,0 +1,15 @@
+export const AddressTemplate={
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    zip: "",
+    cardNumber: "",
+    cardName: "",
+    expiry: "",
+    cvv: "",
+    upiId: "",
+    saveCard: false,
+  }
