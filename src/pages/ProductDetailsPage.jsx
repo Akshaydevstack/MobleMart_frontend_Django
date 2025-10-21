@@ -37,7 +37,7 @@ export default function ProductDetailsPage() {
     : [];
 
   const isInCart = product
-    ? cart.some((item) => item.id === product.id)
+    ? cart.items.some((item) => item.id === product.id)
     : false;
 
   const handleAddToCart = async (e) => {

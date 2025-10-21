@@ -13,7 +13,7 @@ export default function PriceFilter({ priceRange, setPriceRange }) {
 
   // Debounced function to update parent state
   const debouncedSetPriceRange = useMemo(
-    () => _.debounce((range) => setPriceRange(range), 300),
+    () => _.debounce((range) => setPriceRange(range), ),
     [setPriceRange]
   );
 

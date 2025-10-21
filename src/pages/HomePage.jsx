@@ -27,7 +27,7 @@ export default function HomePage() {
   useEffect(() => {
     getProducts()
       .then((res) => {
-        console.log(res);
+   
         // Filter out inactive products
         const activeProducts = res.results.filter((product) => product.is_active);
         sethomeProducts(activeProducts);

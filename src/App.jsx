@@ -91,7 +91,7 @@ function App() {
                 <Route path="/user" element={<UserProfilePage />} />
                 <Route path="/buynow" element={<BuyNowPage />} />
                 <Route
-                  path="/orderconfirmation"
+                  path="/order-confirmation/:orderId"
                   element={<OrderConfirmation />}
                 />
                 <Route path="/wishlist" element={<WishlistPage />} />

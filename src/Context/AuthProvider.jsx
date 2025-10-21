@@ -16,10 +16,10 @@ export default function AuthProvider({ children }) {
   const navigate = useNavigate();
 
   // Helper: fetch cart info
-  const fetchCart = async (userId) => {
+  const fetchCart = async () => {
     try {
-      const res = await api.get(`/users/${userId}`);
-      setCartLength(res.data.cart ? res.data.cart.length : 0);
+      const res = await api.get(`/cart/`);
+      setCartLength(res.data.items.length);
     } catch (err) {
       console.log("Failed to load cart:", err);
     }

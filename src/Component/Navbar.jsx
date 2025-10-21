@@ -17,14 +17,14 @@ export default function Navbar() {
   const location = useLocation();
   const currentPath = location.pathname;
 
-  const { user, logout, cartlength, setcartlength } = useContext(AuthContext);
+  const { user, logout, cartLength, setCartLength } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handillogout = () => {
     const result = confirm("Do you want to logout");
     if (result) {
       logout();
-      setcartlength(0);
+      setCartLength(0);
     }
   };
 
@@ -55,9 +55,9 @@ export default function Navbar() {
             className={`relative flex items-center ${currentPath === "/cart" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
           >
             <ShoppingCart className="w-5 h-5 mr-1" /> Cart
-            {cartlength > 0 && (
+            {cartLength > 0 && (
               <span className="absolute -top-2 -right-4 text-white text-[13px] px-1 py-[1px] rounded-full">
-                {cartlength}
+                {cartLength}
               </span>
             )}
           </Link>

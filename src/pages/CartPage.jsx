@@ -1,100 +1,56 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
-import { AuthContext } from "../Context/AuthProvider";
 import { toast } from "react-hot-toast";
-import { UserApi } from "../Data/Api_EndPoint";
-import { Loader } from "lucide-react";
+import useCart from "../Hooks/useCart";
 import LoaderPage from "../Component/LoaderPage";
 
+
 export default function CartPage() {
-  const { setcartlength } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [cartItems, setCartItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const storedUser = JSON.parse(localStorage.getItem("user"));
+  const { cart, addToCart , removeFromCart } = useCart(); // cart from DRF hook
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchCart = async () => {
-      if (!storedUser) {
-        navigate("/login");
-        return;
-      }
-      try {
-        const res = await axios.get(`${UserApi}/${storedUser.userid}`);
-        setCartItems(res.data.cart || []);
-      } catch (err) {
-        console.log("Error fetching cart:", err);
-        toast.error("Failed to load cart");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCart();
-  }, []);
+  if (loading) return <LoaderPage />;
 
-  // Group same items
-  const groupedItems = cartItems.reduce((acc, item) => {
-    const existing = acc.find((i) => i.id === item.id);
-    if (existing) {
-      existing.count += 1;
-    } else {
-      acc.push({ ...item, count: 1 });
-    }
-    return acc;
-  }, []);
-
-  // Calculate total
-  const total = groupedItems.reduce((acc, item) => {
-    const priceNumber =
-      Number(String(item.price).replace(/₹|,/g, "").trim()) || 0;
-    return acc + priceNumber * item.count;
-  }, 0);
-  const itemCount = cartItems.length;
-
-  const updateCartOnServer = async (updatedCart) => {
-    try {
-      setcartlength(updatedCart.length);
-      await axios.patch(`${UserApi}/${storedUser.userid}`, {
-        cart: updatedCart,
-      });
-    } catch (err) {
-      console.log("Error updating cart:", err);
-      toast.error("Failed to update cart");
-    }
-  };
+  // Total items count
+  const itemCount = cart.items.length || 0;
+  // Total price from API
+  const totalPrice = cart.total || 0;
 
   const increaseQuantity = async (item) => {
-    const updatedCart = [...cartItems, item];
-    setCartItems(updatedCart);
-    await updateCartOnServer(updatedCart);
+  try {
+    await addToCart(item.product, 1); // correct
     toast.success("Quantity increased");
-  };
+  } catch {
+    toast.error("Failed to increase quantity");
+  }
+};
 
-  const decreaseQuantity = async (id) => {
-    const index = cartItems.findIndex((item) => item.id === id);
-    if (index !== -1) {
-      const updatedCart = [...cartItems];
-      updatedCart.splice(index, 1);
-      setCartItems(updatedCart);
-      await updateCartOnServer(updatedCart);
-      toast.success("Quantity decreased");
+const decreaseQuantity = async (item) => {
+  try {
+    if (item.quantity <= 1) {
+      await removeItem(item.id, item.product.name);
+    } else {
+      await addToCart(item.product, -1); // correct
+    }
+    toast.success("Quantity updated");
+  } catch {
+    toast.error("Failed to update quantity");
+  }
+};
+
+
+  const removeItem = async (cartItemId,name) => {
+    try {
+      await removeFromCart(cartItemId); // Update cart via hook (or you can create a remove function)
+      toast.success(`${name} removed from cart`);
+    } catch {
+      toast.error("Failed to remove item");
     }
   };
 
-  const removeAllOfItem = async (id) => {
-    const updatedCart = cartItems.filter((item) => item.id !== id);
-    setCartItems(updatedCart);
-    await updateCartOnServer(updatedCart);
-    toast.success("Item removed from cart");
-  };
-
-  if (loading) {
-    return (
-     <LoaderPage/>
-    );
-  }
+  if (!cart.items) return <LoaderPage />;
 
   return (
     <div
@@ -143,33 +99,33 @@ export default function CartPage() {
                   <h3 className="text-xl font-semibold mb-6 text-yellow-400 border-b border-gray-700 pb-3">
                     Cart Items
                   </h3>
-                  <div className="max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
-                    {groupedItems.map((item) => (
+                  <div className="max-h-[calc(100vh-300px)] overflow-y-auto pr-2 space-y-4">
+                    {cart.items.map((item) => (
                       <motion.div
                         key={item.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3 }}
-                        className="flex flex-col md:flex-row items-center gap-4 p-6 rounded-xl border border-gray-700 mb-4 last:mb-0 hover:bg-gray-800 transition-colors"
+                        className="flex flex-col md:flex-row items-center gap-4 p-4 rounded-xl border border-gray-700 hover:bg-gray-800 transition-colors"
                       >
                         <img
-                          onClick={() => navigate(`/product/${item.id}`)}
-                          src={item.image[0]}
-                          alt={item.name}
+                          onClick={() => navigate(`/product/${item.product.id}`)}
+                          src={item.product.images[0]}
+                          alt={item.product.name}
                           className="w-24 h-24 object-contain rounded-lg cursor-pointer hover:scale-105 transition-transform"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                             <div>
                               <h3 className="text-xl font-semibold truncate">
-                                {item.name}
+                                {item.product.name}
                               </h3>
                               <p className="text-gray-400 text-sm">
-                                {item.brand}
+                                Brand: {item.product.brand_name}
                               </p>
                             </div>
                             <p className="text-yellow-400 font-bold">
-                              ₹{item.price.toLocaleString()}
+                              ₹{Number(item.product.price).toLocaleString()}
                             </p>
                           </div>
 
@@ -178,14 +134,12 @@ export default function CartPage() {
                               <motion.button
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
-                                onClick={() => decreaseQuantity(item.id)}
+                                onClick={() => decreaseQuantity(item)}
                                 className="w-8 h-8 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-full"
                               >
                                 -
                               </motion.button>
-                              <span className="w-8 text-center">
-                                {item.count}
-                              </span>
+                              <span className="w-8 text-center">{item.quantity}</span>
                               <motion.button
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
@@ -198,10 +152,10 @@ export default function CartPage() {
                             <motion.button
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={() => removeAllOfItem(item.id)}
+                              onClick={() => removeItem(item.id,item.product.name)}
                               className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded-full text-xs font-medium transition-colors"
                             >
-                              Remove Item
+                              Remove
                             </motion.button>
                           </div>
                         </div>
@@ -232,7 +186,7 @@ export default function CartPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-300">Subtotal:</span>
-                  <span>₹{total.toLocaleString()}</span>
+                  <span>₹{Number(totalPrice).toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-300">Shipping:</span>
@@ -241,7 +195,7 @@ export default function CartPage() {
                 <div className="border-t border-gray-700 pt-4 flex justify-between font-bold text-lg">
                   <span>Total:</span>
                   <span className="text-yellow-400">
-                    ₹{total.toLocaleString()}
+                    ₹{Number(totalPrice).toLocaleString()}
                   </span>
                 </div>
               </div>

@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import useCart from "../../Hooks/useCart";
 import LoaderPage from "../LoaderPage";
+import toast from "react-hot-toast";
 
 export default function PremiumPicks({ featuredItems = [] }) {
   const storedUser = JSON.parse(localStorage.getItem("user"));
@@ -61,6 +62,7 @@ export default function PremiumPicks({ featuredItems = [] }) {
                         navigate("/login");
                       } else {
                         addToCart(item);
+                        toast.success(`${item.name} added to cart`)
                       }
                     }}
                     className="w-max bg-yellow-400 text-black px-6 py-2 rounded-full hover:bg-yellow-300 transition font-semibold shadow"

@@ -1,74 +1,39 @@
 import { motion } from "framer-motion";
-import axios from "axios";
-import useCart from "../../Hooks/useCart";
 import { toast } from "react-hot-toast";
-import { useEffect, useState } from "react";
 import { FiSearch, FiX, FiShoppingCart, FiHeart } from "react-icons/fi";
-import { UserApi } from "../../Data/Api_EndPoint";
+import { useNavigate } from "react-router-dom";
+import useCart from "../../Hooks/useCart";
+import useWishlist from "../../Hooks/useWishlist"; // DRF wishlist hook
 
 export default function OurMobileCollection({
   products,
-  navigate,
   searchQuery,
   setSearchQuery,
+  loading,
 }) {
-  const { cart = [], addToCart } = useCart();
-  const storedUser = JSON.parse(localStorage.getItem("user"));
-  const [wishlist, setWishlist] = useState([]);
-
-  // Fetch user's wishlist
-  // useEffect(() => {
-  //   if (!storedUser) return;
-  //   axios
-  //     .get(`${UserApi}/${storedUser.userid}`)
-  //     .then((res) => setWishlist(res.data.wishlist || []))
-  //     .catch((err) => {
-  //       console.error("Error fetching wishlist:", err);
-  //       setWishlist([]);
-  //     });
-  // }, [storedUser]);
+  const { cart, addToCart } = useCart();
+  const { wishlist, addToWishlist, removeFromWishlist } = useWishlist();
+  const navigate = useNavigate();
 
   const formatPrice = (price) =>
     new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       maximumFractionDigits: 0,
-    }).format(price);
+    }).format(parseInt(price.replace(/[^0-9]/g, "")));
 
-  const addToWishlist = async (e, product) => {
-    e.stopPropagation();
-    if (!storedUser) {
-      navigate("/login");
-      return;
-    }
-
-    try {
-      const res = await axios.get(`${UserApi}/${storedUser.userid}`);
-      const user = res.data;
-
-      if ((user.wishlist || []).some((item) => item.id === product.id)) {
-        toast.error("Item already in wishlist");
-        return;
-      }
-
-      const updatedWishlist = [...(user.wishlist || []), product];
-      await axios.patch(`${UserApi}/${storedUser.userid}`, {
-        wishlist: updatedWishlist,
-      });
-
-      setWishlist(updatedWishlist);
-      toast.success(`${product.name} added to wishlist`);
-    } catch (err) {
-      console.error("Error adding to wishlist:", err);
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   if (!products.length) {
     return (
       <div className="text-center py-20 text-gray-400">
-        <h3 className="text-2xl">
-          No products found for "{searchQuery}"
-        </h3>
+        <h3 className="text-2xl">No products found for "{searchQuery}"</h3>
         {searchQuery && (
           <button
             onClick={() => setSearchQuery("")}
@@ -81,8 +46,19 @@ export default function OurMobileCollection({
     );
   }
 
+  const handleWishlistClick = (product, isInWishlist) => {
+    if (isInWishlist) {
+      // Optimistic removal
+      removeFromWishlist(product.id);
+    } else {
+      // Optimistic addition
+      addToWishlist(product);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
+      {/* Header & Search */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6 md:gap-0">
         <motion.h2
           className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white"
@@ -115,18 +91,17 @@ export default function OurMobileCollection({
         </div>
       </div>
 
+      {/* Products Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {products.map((product) => {
-          const numericPrice = parseInt(product.price.replace(/[^0-9]/g, ""));
+          const isInCart = cart.items.some((item) => item.product.id === product.id);
+          const isInWishlist = wishlist.some((item) => item.id === product.id);
           const stockStatus =
             product.count === 0
               ? "Out of Stock"
               : product.count < 10
               ? "Limited Stock"
               : null;
-
-          const isInCart = cart.some((item) => item.id === product.id);
-          const isInWishlist = wishlist.some((item) => item.id === product.id);
 
           return (
             <motion.div
@@ -156,40 +131,25 @@ export default function OurMobileCollection({
                   className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-110"
                 />
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-                  <span className="text-yellow-400 font-bold">
-                    {formatPrice(numericPrice)}
-                  </span>
+                  <span className="text-yellow-400 font-bold">{formatPrice(product.price)}</span>
                 </div>
               </div>
 
               <div className="p-6 flex flex-col space-y-3 items-center text-center flex-grow">
                 <h3 className="text-xl font-semibold">{product.name}</h3>
-                <p className="text-gray-400 text-sm flex-grow">
-                  {product.description.slice(0, 30)}...
-                </p>
+                <p className="text-gray-400 text-sm flex-grow">{product.description.slice(0, 30)}...</p>
 
                 <div className="flex space-x-3 mt-4">
                   {isInCart ? (
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate("/cart");
-                      }}
+                      onClick={(e) => { e.stopPropagation(); navigate("/cart"); }}
                       className="px-4 py-2 rounded-full bg-green-600 text-white transition font-semibold shadow hover:shadow-md hover:bg-green-500 flex items-center gap-2 text-sm"
                     >
                       <FiShoppingCart /> Go to Cart
                     </button>
                   ) : (
                     <button
-                      onClick={(e) => {
-                        if (!storedUser) {
-                          e.stopPropagation();
-                          navigate("/login");
-                        } else if (product.count > 0) {
-                          e.stopPropagation();
-                          addToCart(product);
-                        }
-                      }}
+                      onClick={(e) => { e.stopPropagation(); if(product.count>0) addToCart(product); toast.success(`${product.name} added to cart`) }}
                       disabled={product.count === 0}
                       className={`px-4 py-2 rounded-full transition font-semibold shadow hover:shadow-md text-sm ${
                         product.count === 0
@@ -202,11 +162,11 @@ export default function OurMobileCollection({
                   )}
 
                   <button
-                    onClick={isInWishlist ? undefined : (e) => addToWishlist(e, product)}
-                    disabled={isInWishlist}
+                    onClick={(e) => { e.stopPropagation(); handleWishlistClick(product, isInWishlist); }}
+                    disabled = {isInWishlist}
                     className={`px-2 py-2 rounded-full transition font-semibold shadow hover:shadow-md flex items-center gap-1 text-sm ${
                       isInWishlist
-                        ? "bg-green-600/20 text-green-400 cursor-not-allowed"
+                        ? "bg-green-600/20 text-green-400"
                         : "bg-gray-800 text-yellow-400 hover:bg-gray-700"
                     }`}
                   >
