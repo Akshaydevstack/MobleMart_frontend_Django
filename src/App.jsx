@@ -19,6 +19,9 @@ import PushNotification from "./AdminSection/pages/Pushnotification";
 import UserNotifications from "./pages/UserNotifications";
 import BusinessAnalytics from "./AdminSection/pages/BusinessAnalytics";
 import LoaderPage from "./Component/LoaderPage";
+import ResetPassword from "./pages/ResetPassword";
+import PasswordResetConfirm from "./pages/PasswordResetConfirm";
+import EditProfilePage from "./pages/EditProfilePage";
 const HomePage = lazy(() => import("./pages/HomePage"));
 const ShopPage = lazy(() => import("./pages/ShopPage"));
 const CartPage = lazy(() => import("./pages/CartPage"));
@@ -85,10 +88,12 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/product/:id" element={<ProductDetailsPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/cart" element={<CartPage />} />
+               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/reset-password/:uid/:token" element={<PasswordResetConfirm />} />
               <Route element={<UserRoutes />}>
+               <Route path="/cart" element={<CartPage />} />
                 <Route path="/user" element={<UserProfilePage />} />
+                <Route path="/edit-profile" element={<EditProfilePage />} />
                 <Route path="/buynow" element={<BuyNowPage />} />
                 <Route
                   path="/order-confirmation/:orderId"

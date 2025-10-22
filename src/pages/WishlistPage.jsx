@@ -63,7 +63,7 @@ export default function WishlistPage() {
         <motion.button
           whileHover={{ scale: item.count > 0 ? 1.05 : 1 }}
           whileTap={{ scale: item.count > 0 ? 0.95 : 1 }}
-          onClick={() => item.count > 0 && addToWishlistCart(item, addToCart)}
+          onClick={() => {item.count > 0 && addToWishlistCart(item, addToCart) && removeFromWishlist(item.id) }}
           disabled={item.count === 0}
           className={`px-6 py-2 rounded-full transition shadow-md font-semibold ${
             item.count === 0

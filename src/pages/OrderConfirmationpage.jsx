@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import api from "../API/axios";
 
-
 export default function OrderConfirmation() {
   const { orderId } = useParams();
   const navigate = useNavigate();
@@ -98,7 +97,7 @@ export default function OrderConfirmation() {
             Order Confirmed!
           </motion.h1>
           <p className="text-sm md:text-lg text-gray-300">
-            Thank you for your purchase.
+            Thank you for your purchase, {order.shipping_info?.name || order.user_name}!
           </p>
         </div>
 
@@ -193,6 +192,33 @@ export default function OrderConfirmation() {
                 </span>
               </div>
             </div>
+
+            {/* ✅ Razorpay Payment Details - Only show for Razorpay payments */}
+            {order.payment_method === "Razorpay" && order.razorpay_payment_id && (
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-gray-800 p-4 md:p-6 rounded-xl md:rounded-2xl border border-gray-700 shadow-md md:shadow-lg mt-6"
+              >
+                <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-yellow-400">
+                  Payment Details
+                </h2>
+                <div className="space-y-2 text-sm md:text-base text-gray-300">
+                  <div className="flex justify-between">
+                    <span>Razorpay Payment ID:</span>
+                    <span>{order.razorpay_payment_id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Razorpay Order ID:</span>
+                    <span>{order.razorpay_order_id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Signature:</span>
+                    <span className="truncate max-w-[60%]">{order.razorpay_signature}</span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </motion.div>
 
           {/* ✅ Shipping Information */}
@@ -254,7 +280,10 @@ export default function OrderConfirmation() {
                     </span>
                   </div>
                   <p className="text-gray-300 text-xs md:text-sm mt-1 md:mt-2">
-                    Expected delivery: 3–5 business days
+                    {order.payment_method === "Cash on Delivery" 
+                      ? "Payment will be collected upon delivery"
+                      : "Expected delivery: 3–5 business days"
+                    }
                   </p>
                 </div>
               </div>

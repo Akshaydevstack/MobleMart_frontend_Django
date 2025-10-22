@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import BrandFilter from "../Component/ShopComponents/BrandFilter";
 import PriceFilter from "../Component/ShopComponents/PriceFilter";
@@ -11,6 +11,10 @@ import useProductData from "../Hooks/useProductData";
 useProductData
 
 export default function ShopPage() {
+  useEffect(() => {
+  window.scrollTo(0, 0);
+}, []);
+
   const navigate = useNavigate();
   const [selectedBrand, setSelectedBrand] = useState({ id: null, name: "All" });
   const [priceRange, setPriceRange] = useState([10000, 200000]);

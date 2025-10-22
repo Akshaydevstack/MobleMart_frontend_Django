@@ -39,7 +39,6 @@ export default function useWishlist() {
 
     try {
       await api.post("wishlist/", { product_id: product.id });
-      toast.success(`${product.name} added to wishlist ❤️`);
       // 🔁 Re-fetch after adding to sync state immediately
       await fetchWishlist();
     } catch (err) {

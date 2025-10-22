@@ -10,6 +10,6 @@ export default function UserRoutes() {
   } else if (user && user?.role == "Admin") {
     return <Navigate to="/admin" replace />;
   }else{
-  return <Navigate to="/" replace/>
+  return <Navigate to="/login" replace/>
   }
 }

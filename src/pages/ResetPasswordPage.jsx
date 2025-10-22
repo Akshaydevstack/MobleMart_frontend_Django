@@ -1,15 +1,19 @@
 import React from "react";
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { motion } from "framer-motion";
 import axios from "axios";
-import { GetUserData } from "../API/GetUsreData"; 
+import { GetUserData } from "../API/GetUsreData";
 import { toast } from "react-hot-toast";
 import { UserApi } from "../Data/Api_EndPoint";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const formik = useFormik({
     initialValues: {
@@ -27,7 +31,7 @@ export default function ResetPasswordPage() {
     onSubmit: async (values, { resetForm }) => {
       try {
         const users = await GetUserData();
-        const existingUser = users.find(u => u.email === values.email);
+        const existingUser = users.find((u) => u.email === values.email);
 
         if (existingUser) {
           await axios.patch(`${UserApi}/${existingUser.id}`, {
@@ -95,7 +99,10 @@ export default function ResetPasswordPage() {
                 Reset Password
               </h2>
 
-              <form onSubmit={formik.handleSubmit} className="space-y-4 md:space-y-5">
+              <form
+                onSubmit={formik.handleSubmit}
+                className="space-y-4 md:space-y-5"
+              >
                 {/* Email */}
                 <div>
                   <label className="block text-gray-300 mb-1 text-xs md:text-sm">
@@ -146,11 +153,12 @@ export default function ResetPasswordPage() {
                       focus:outline-none focus:border-yellow-500 text-sm md:text-base`}
                   />
                   <div className="min-h-[1rem] md:min-h-[1.25rem]">
-                    {formik.touched.newPassword && formik.errors.newPassword && (
-                      <p className="text-red-400 text-xs">
-                        {formik.errors.newPassword}
-                      </p>
-                    )}
+                    {formik.touched.newPassword &&
+                      formik.errors.newPassword && (
+                        <p className="text-red-400 text-xs">
+                          {formik.errors.newPassword}
+                        </p>
+                      )}
                   </div>
                 </div>
 

@@ -128,7 +128,7 @@ export default function ViewOrders() {
                 <div className="border-t border-gray-700 pt-4 flex justify-between items-center">
                   <div className="text-sm text-gray-400">{order.items.length} item{order.items.length !== 1 ? "s" : ""}</div>
                   <div className="flex gap-3">
-                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} onClick={() => navigate("/orderconfirmation", { state: { order } })} className="px-4 py-2 border border-gray-500 text-gray-300 hover:bg-gray-700 rounded-lg text-sm transition">
+                    <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} onClick={() => navigate(`/order-confirmation/${order.id}`, { state: { order } })} className="px-4 py-2 border border-gray-500 text-gray-300 hover:bg-gray-700 rounded-lg text-sm transition">
                       View Details
                     </motion.button>
                     {order.status !== "Delivered" && order.status !== "Cancelled" && (

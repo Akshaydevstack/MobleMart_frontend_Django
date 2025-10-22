@@ -82,6 +82,10 @@ export default function AuthProvider({ children }) {
     navigate("/", { replace: true });
   };
 
+  const updateUser = (updatedUserData) => {
+  setUser(updatedUserData);
+  localStorage.setItem("user", JSON.stringify(updatedUserData));
+};
 
 
   return (
@@ -94,7 +98,8 @@ export default function AuthProvider({ children }) {
         setCartLength,
         abandoned,
         setAbandoned,
-        register
+        register,
+        updateUser
       }}
     >
       {children}

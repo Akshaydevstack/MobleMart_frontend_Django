@@ -10,9 +10,11 @@ import { AuthContext } from "../Context/AuthProvider";
 import { getProducts } from "../services/ProductService";
 
 export default function HomePage() {
+  
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+  
   const [homeProducts, sethomeProducts] = useState([]);
   const [featuredItems, setfeaturedItems] = useState([]);
   const { user } = useContext(AuthContext);

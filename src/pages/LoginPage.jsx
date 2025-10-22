@@ -14,6 +14,7 @@ export default function LoginPage() {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
   const [blockedUser, setBlockedUser] = useState(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem("user"));
@@ -27,7 +28,9 @@ export default function LoginPage() {
     initialValues: { email: "", password: "" },
     validationSchema: Yup.object({
       email: Yup.string().email("Invalid email").required("Email required"),
-      password: Yup.string().min(6, "Min 6 chars").required("Password required"),
+      password: Yup.string()
+        .min(6, "Min 6 chars")
+        .required("Password required"),
     }),
     onSubmit: async (values, { setSubmitting }) => {
       setSubmitting(true);
@@ -55,47 +58,67 @@ export default function LoginPage() {
       });
 
       toast.success("Login Successful 🎉");
-      navigate(matchedUser.role === "Admin" ? "/admin" : "/", { replace: true });
+      navigate(matchedUser.role === "Admin" ? "/admin" : "/", {
+        replace: true,
+      });
       setSubmitting(false);
     },
   });
 
-
-
-  // 🧠 Google login handler
+  // 🧠 Google login handler - Optimized
   const handleGoogleLogin = async (credentialResponse) => {
+    setIsGoogleLoading(true);
+
     try {
       const { credential } = credentialResponse;
-      if (!credential) return toast.error("Google authentication failed");
-
-      const res = await api.post("users/google-login/", { token: credential });
-      const accessToken = res.data.access;
-      localStorage.setItem("access_token", accessToken);
-
-      const decoded = jwtDecode(accessToken);
-      if (decoded.is_block) {
-        toast.error("Your account has been blocked 🚫");
+      if (!credential) {
+        toast.error("Google authentication failed");
+        setIsGoogleLoading(false);
         return;
       }
 
-      login({
+      const res = await api.post("users/google-login/", { token: credential });
+      const accessToken = res.data.access;
+
+      // Store token immediately
+      localStorage.setItem("access_token", accessToken);
+
+      const decoded = jwtDecode(accessToken);
+
+      if (decoded.is_block) {
+        toast.error("Your account has been blocked 🚫");
+        setBlockedUser({ username: decoded.username });
+        setIsGoogleLoading(false);
+        return;
+      }
+
+      // Create user data object
+      const userData = {
         userid: decoded.user_id,
         name: decoded.username,
         email: decoded.email,
         role: decoded.role,
         is_block: decoded.is_block,
-      });
+      };
+
+      // Update auth context and navigate immediately
+      login(userData);
 
       toast.success("Google login successful 🎉");
-      navigate(decoded.role === "Admin" ? "/admin" : "/", { replace: true });
+
+      // Immediate navigation without delay
+      const targetPath = decoded.role === "Admin" ? "/admin" : "/";
+      navigate(targetPath, { replace: true });
     } catch (error) {
-      console.error("Google login failed:", error.response?.data || error.message);
+      console.error(
+        "Google login failed:",
+        error.response?.data || error.message
+      );
       toast.error("Google login failed ❌");
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
-
-
-
 
   if (blockedUser) {
     return (
@@ -105,11 +128,16 @@ export default function LoginPage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-gray-900 p-6 rounded-2xl shadow-lg max-w-md text-center"
         >
-          <h2 className="text-2xl font-bold text-red-500 mb-4">Account Blocked</h2>
+          <h2 className="text-2xl font-bold text-red-500 mb-4">
+            Account Blocked
+          </h2>
           <p className="text-gray-400 mb-2">
-            Sorry {blockedUser.username}, your account has been blocked by the admin.
+            Sorry {blockedUser.username}, your account has been blocked by the
+            admin.
           </p>
-          <p className="text-gray-500 text-sm">Please contact support for more information.</p>
+          <p className="text-gray-500 text-sm">
+            Please contact support for more information.
+          </p>
         </motion.div>
       </div>
     );
@@ -118,7 +146,9 @@ export default function LoginPage() {
   return (
     <div
       className="w-full min-h-[90vh] md:min-h-screen flex items-center justify-center p-4 md:p-6"
-      style={{ backgroundImage: "linear-gradient(135deg, #0f172a, #1e293b, #312e81)" }}
+      style={{
+        backgroundImage: "linear-gradient(135deg, #0f172a, #1e293b, #312e81)",
+      }}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -140,7 +170,9 @@ export default function LoginPage() {
                 alt="Brand Logo"
                 className="w-24 h-auto md:w-40 rounded-xl mx-auto mb-2 md:mb-4"
               />
-              <h2 className="text-xl md:text-3xl font-bold text-gray-900">Welcome Back</h2>
+              <h2 className="text-xl md:text-3xl font-bold text-gray-900">
+                Welcome Back
+              </h2>
               <p className="text-gray-800 mt-1 md:mt-2 text-sm md:text-base">
                 Login to your MobileMart account
               </p>
@@ -155,12 +187,19 @@ export default function LoginPage() {
               transition={{ delay: 0.5 }}
               className="max-w-md mx-auto"
             >
-              <h2 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6 text-center">Login</h2>
+              <h2 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6 text-center">
+                Login
+              </h2>
 
-              <form onSubmit={formik.handleSubmit} className="space-y-4 md:space-y-5">
+              <form
+                onSubmit={formik.handleSubmit}
+                className="space-y-4 md:space-y-5"
+              >
                 {/* Email */}
                 <div>
-                  <label className="block text-gray-300 mb-1 text-xs md:text-sm">Email</label>
+                  <label className="block text-gray-300 mb-1 text-xs md:text-sm">
+                    Email
+                  </label>
                   <input
                     type="email"
                     name="email"
@@ -175,13 +214,17 @@ export default function LoginPage() {
                     } focus:outline-none focus:border-yellow-500 text-sm md:text-base`}
                   />
                   {formik.touched.email && formik.errors.email && (
-                    <p className="text-red-400 text-xs">{formik.errors.email}</p>
+                    <p className="text-red-400 text-xs">
+                      {formik.errors.email}
+                    </p>
                   )}
                 </div>
 
                 {/* Password */}
                 <div>
-                  <label className="block text-gray-300 mb-1 text-xs md:text-sm">Password</label>
+                  <label className="block text-gray-300 mb-1 text-xs md:text-sm">
+                    Password
+                  </label>
                   <input
                     type="password"
                     name="password"
@@ -197,7 +240,9 @@ export default function LoginPage() {
                     } focus:outline-none focus:border-yellow-500 text-sm md:text-base`}
                   />
                   {formik.touched.password && formik.errors.password && (
-                    <p className="text-red-400 text-xs">{formik.errors.password}</p>
+                    <p className="text-red-400 text-xs">
+                      {formik.errors.password}
+                    </p>
                   )}
                 </div>
 
@@ -207,30 +252,50 @@ export default function LoginPage() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   disabled={formik.isSubmitting}
-                  className="w-full py-2 md:py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-lg transition shadow-md text-sm md:text-base"
+                  className="w-full py-2 md:py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-lg transition shadow-md text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {formik.isSubmitting ? "Logging in..." : "Login"}
+                  {formik.isSubmitting ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                      Logging in...
+                    </div>
+                  ) : (
+                    "Login"
+                  )}
                 </motion.button>
               </form>
 
               {/* Google Login */}
               <div className="mt-5 flex justify-center">
-                <GoogleLogin
-                  onSuccess={handleGoogleLogin}
-                  onError={() => toast.error("Google Login Failed")}
-                />
+                {isGoogleLoading ? (
+                  <div className="flex items-center justify-center gap-2 bg-gray-800 text-white px-6 py-3 rounded-lg">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Signing in with Google...
+                  </div>
+                ) : (
+                  <GoogleLogin
+                    onSuccess={handleGoogleLogin}
+                    onError={() => toast.error("Google Login Failed")}
+                  />
+                )}
               </div>
 
               <p className="text-gray-400 text-center mt-4 md:mt-6 text-xs md:text-sm">
                 New to MobileMart?{" "}
-                <Link to="/register" className="text-yellow-400 hover:underline font-medium">
+                <Link
+                  to="/register"
+                  className="text-yellow-400 hover:underline font-medium"
+                >
                   Create an account
                 </Link>
               </p>
 
               <p className="text-gray-400 text-center mt-2 text-xs md:text-sm">
                 Forgot your password?{" "}
-                <Link to="/reset-password" className="text-yellow-400 hover:underline font-medium">
+                <Link
+                  to="/reset-password"
+                  className="text-yellow-400 hover:underline font-medium"
+                >
                   Reset here
                 </Link>
               </p>

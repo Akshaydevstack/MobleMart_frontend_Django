@@ -4,9 +4,10 @@ import { AuthContext } from "../Context/AuthProvider";
 import { motion } from "framer-motion";
 import axios from "axios";
 import { UserApi } from "../Data/Api_EndPoint";
+import api from "../API/axios";
 
 export default function AdminRoutes() {
-  const { user, logout, setcartlength } = useContext(AuthContext);
+  const { user, logout, setCartLength } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -14,11 +15,13 @@ export default function AdminRoutes() {
   const [attempts, setAttempts] = useState(() => {
     return parseInt(localStorage.getItem("adminAttempts")) || 0;
   });
+  const [hasChecked, setHasChecked] = useState(false); // Add this flag
 
   useEffect(() => {
     if (user && user.role === "Admin") {
       localStorage.removeItem("adminAttempts");
       setAttempts(0);
+      setHasChecked(false); // Reset the flag when user is admin
     }
   }, [user]);
 
@@ -29,7 +32,7 @@ export default function AdminRoutes() {
   }, [user, location.pathname, navigate]);
 
   useEffect(() => {
-    if (user === null) return;
+    if (user === null || hasChecked) return; // Add hasChecked condition
 
     if (
       location.pathname.startsWith("/admin") &&
@@ -39,8 +42,9 @@ export default function AdminRoutes() {
       setAttempts(newAttempts);
       localStorage.setItem("adminAttempts", newAttempts.toString());
       setShowWarning(true);
+      setHasChecked(true); // Set flag to prevent multiple increments
     }
-  }, [location.pathname, user]);
+  }, [location.pathname, user, hasChecked, attempts]); // Add dependencies
 
   useEffect(() => {
     if (attempts < 1) return;
@@ -51,8 +55,8 @@ export default function AdminRoutes() {
 
         if (user && !user.isBlock && user.userid) {
           try {
-            await axios.patch(`${UserApi}/${user.userid}`, {
-              isBlock: true,
+            await api.patch(`users/me/block/${user.userid}/`, {
+              is_block: true,
             });
             console.log("✅ User blocked in backend.");
           } catch (err) {
@@ -62,11 +66,13 @@ export default function AdminRoutes() {
         localStorage.removeItem("adminAttempts");
         await logout?.();
       }
+      setShowWarning(false); // Hide warning before redirect
       navigate("/", { replace: true });
     }, 3000);
-    setcartlength(0);
+    
+    setCartLength(0);
     return () => clearTimeout(timeout);
-  }, [attempts, user, logout, navigate]);
+  }, [attempts, user, logout, navigate, setCartLength]);
 
   if (showWarning) {
     return (

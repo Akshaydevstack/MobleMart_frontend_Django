@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useFormik } from "formik";
 import * as Yup from "yup";
@@ -11,8 +11,14 @@ import api from "../API/axios";
 import { jwtDecode } from "jwt-decode";
 
 export default function RegisterPage() {
+
+  useEffect(() => {
+  window.scrollTo(0, 0);
+}, []);
+
   const { register } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // ----------------- Normal Formik Registration -----------------
   const formik = useFormik({
@@ -32,7 +38,8 @@ export default function RegisterPage() {
         .min(6, "Password must be at least 6 characters")
         .required("Password is required"),
     }),
-    onSubmit: async (values) => {
+    onSubmit: async (values, { setSubmitting }) => {
+      setSubmitting(true);
       try {
         const userData = await registerUser(
           values.username,
@@ -58,15 +65,22 @@ export default function RegisterPage() {
         } else {
           toast.error("❌ Something went wrong. Please try again.");
         }
+      } finally {
+        setSubmitting(false);
       }
     },
   });
 
   // ----------------- Google OAuth Handler -----------------
   const handleGoogleLogin = async (credentialResponse) => {
+    setIsGoogleLoading(true);
     try {
       const { credential } = credentialResponse;
-      if (!credential) return toast.error("Google authentication failed");
+      if (!credential) {
+        toast.error("Google authentication failed");
+        setIsGoogleLoading(false);
+        return;
+      }
 
       const res = await api.post("users/google-login/", { token: credential });
       const accessToken = res.data.access;
@@ -75,6 +89,7 @@ export default function RegisterPage() {
       const decoded = jwtDecode(accessToken);
       if (decoded.is_block) {
         toast.error("Your account has been blocked 🚫");
+        setIsGoogleLoading(false);
         return;
       }
 
@@ -91,37 +106,38 @@ export default function RegisterPage() {
     } catch (error) {
       console.error("Google login failed:", error.response?.data || error.message);
       toast.error("Google login failed ❌");
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
   // ----------------- Load Google SDK -----------------
   useEffect(() => {
-  const script = document.createElement("script");
-  script.src = "https://accounts.google.com/gsi/client";
-  script.async = true;
-  script.defer = true;
-  document.body.appendChild(script);
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
 
-  script.onload = () => {
-    if (!window.google) return;
+    script.onload = () => {
+      if (!window.google) return;
 
-    window.google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleGoogleLogin,
-    });
-
-    const buttonDiv = document.getElementById("google-signin-button");
-    if (buttonDiv) {
-      window.google.accounts.id.renderButton(buttonDiv, {
-        theme: "outline",
-        size: "large",
-        width: "100%",
-        text: "continue_with",
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleLogin,
       });
-    }
-  };
-}, []);
 
+      const buttonDiv = document.getElementById("google-signin-button");
+      if (buttonDiv) {
+        window.google.accounts.id.renderButton(buttonDiv, {
+          theme: "outline",
+          size: "large",
+          width: "100%",
+          text: "continue_with",
+        });
+      }
+    };
+  }, []);
 
   return (
     <div
@@ -188,13 +204,14 @@ export default function RegisterPage() {
                     onBlur={formik.handleBlur}
                     value={formik.values.username}
                     placeholder="John Doe"
+                    disabled={formik.isSubmitting}
                     className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg bg-gray-800 text-white border 
                       ${
                         formik.touched.username && formik.errors.username
                           ? "border-red-500"
                           : "border-gray-700"
                       }
-                      focus:outline-none focus:border-yellow-500 text-sm md:text-base`}
+                      focus:outline-none focus:border-yellow-500 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed`}
                   />
                   <div className="min-h-[1rem] md:min-h-[1.25rem]">
                     {formik.touched.username && formik.errors.username && (
@@ -217,13 +234,14 @@ export default function RegisterPage() {
                     onBlur={formik.handleBlur}
                     value={formik.values.email}
                     placeholder="you@example.com"
+                    disabled={formik.isSubmitting}
                     className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg bg-gray-800 text-white border 
                       ${
                         formik.touched.email && formik.errors.email
                           ? "border-red-500"
                           : "border-gray-700"
                       }
-                      focus:outline-none focus:border-yellow-500 text-sm md:text-base`}
+                      focus:outline-none focus:border-yellow-500 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed`}
                   />
                   <div className="min-h-[1rem] md:min-h-[1.25rem]">
                     {formik.touched.email && formik.errors.email && (
@@ -246,13 +264,14 @@ export default function RegisterPage() {
                     onBlur={formik.handleBlur}
                     value={formik.values.password}
                     placeholder="••••••••"
+                    disabled={formik.isSubmitting}
                     className={`w-full px-3 py-2 md:px-4 md:py-3 rounded-lg bg-gray-800 text-white border 
                       ${
                         formik.touched.password && formik.errors.password
                           ? "border-red-500"
                           : "border-gray-700"
                       }
-                      focus:outline-none focus:border-yellow-500 text-sm md:text-base`}
+                      focus:outline-none focus:border-yellow-500 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed`}
                   />
                   <div className="min-h-[1rem] md:min-h-[1.25rem]">
                     {formik.touched.password && formik.errors.password && (
@@ -265,11 +284,19 @@ export default function RegisterPage() {
 
                 <motion.button
                   type="submit"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full py-2 md:py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-lg transition shadow-md text-sm md:text-base"
+                  whileHover={!formik.isSubmitting ? { scale: 1.02 } : {}}
+                  whileTap={!formik.isSubmitting ? { scale: 0.98 } : {}}
+                  disabled={formik.isSubmitting}
+                  className="w-full py-2 md:py-3 bg-yellow-500 hover:bg-yellow-400 text-black font-bold rounded-lg transition shadow-md text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Register
+                  {formik.isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                      Registering...
+                    </>
+                  ) : (
+                    "Register"
+                  )}
                 </motion.button>
               </form>
 
@@ -281,11 +308,18 @@ export default function RegisterPage() {
               </div>
 
               {/* Google Sign-In Button */}
-              <div
-                id="google-signin-button"
-                className="flex justify-center"
-                style={{ width: "100%" }}
-              ></div>
+              {isGoogleLoading ? (
+                <div className="flex items-center justify-center gap-2 bg-gray-800 text-white px-6 py-3 rounded-lg border border-gray-700">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Signing up with Google...
+                </div>
+              ) : (
+                <div
+                  id="google-signin-button"
+                  className="flex justify-center"
+                  style={{ width: "100%" }}
+                ></div>
+              )}
 
               <p className="text-gray-400 text-center mt-4 md:mt-6 text-xs md:text-sm">
                 Already have an account?{" "}

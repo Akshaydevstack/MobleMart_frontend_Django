@@ -12,6 +12,9 @@ export default function CartPage() {
   const [loading, setLoading] = useState(false);
 
   if (loading) return <LoaderPage />;
+  useEffect(() => {
+  window.scrollTo(0, 0);
+}, []);
 
   // Total items count
   const itemCount = cart.items.length || 0;
