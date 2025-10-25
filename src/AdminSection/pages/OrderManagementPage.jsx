@@ -1,76 +1,95 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { FiRefreshCw, FiSearch, FiX, FiCalendar, FiUser, FiShoppingBag, FiDollarSign, FiCreditCard, FiTruck, FiFilter } from "react-icons/fi";
-import { UserApi } from "../../Data/Api_EndPoint";
+import { debounce } from "lodash";
+import { 
+  FiRefreshCw, 
+  FiSearch, 
+  FiX, 
+  FiCalendar, 
+  FiUser, 
+  FiShoppingBag, 
+  FiDollarSign, 
+  FiCreditCard, 
+  FiTruck, 
+  FiFilter 
+} from "react-icons/fi";
+import api from "../../API/axios";
 
 export default function OrderManagement() {
-  const [users, setUsers] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [savingOrderId, setSavingOrderId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all"); // 'all', 'pending', 'processing', 'delivered', 'cancelled'
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [ordering, setOrdering] = useState("-created_at");
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    total_pages: 1,
+    next: null,
+    previous: null,
+  });
+  const [stats, setStats] = useState({
+    all: 0,
+    pending: 0,
+    processing: 0,
+    delivered: 0,
+    cancelled: 0,
+  });
 
+  // Debounced load orders function
+  const debouncedLoadOrders = useCallback(
+    debounce(async (page = 1, search = "", date = "", status = "all", orderBy = "-created_at") => {
+      try {
+        setLoading(true);
+        const params = { page, ordering: orderBy };
+        if (search) params.search = search;
+        if (status !== "all") params.status = status;
+        if (date) params.date = date;
+
+        const res = await api.get("admin/order-management/", { params });
+
+        setOrders(res.data.results);
+        setPagination({
+          current_page: res.data.current_page,
+          total_pages: res.data.total_pages,
+          next: res.data.next,
+          previous: res.data.previous,
+        });
+        setStats(res.data.stats);
+      } catch (err) {
+        console.error("Error loading orders", err);
+      } finally {
+        setLoading(false);
+      }
+    }, 500),
+    []
+  );
+
+  // Load orders whenever filters, ordering, or current page changes
   useEffect(() => {
-    loadUsers();
-  }, []);
+    debouncedLoadOrders(pagination.current_page, searchQuery, selectedDate, statusFilter, ordering);
+  }, [pagination.current_page, searchQuery, selectedDate, statusFilter, ordering, debouncedLoadOrders]);
 
-  const loadUsers = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(UserApi);
-      setUsers(res.data);
-    } catch (err) {
-      console.error("Error loading users/orders", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      debouncedLoadOrders.cancel();
+    };
+  }, [debouncedLoadOrders]);
 
-  const updateOrderStatus = async (userId, orderId, newStatus) => {
+  // Update order status
+  const updateOrderStatus = async (orderId, newStatus) => {
     try {
       setSavingOrderId(orderId);
-      const user = users.find(u => u.id === userId);
-      if (!user) return;
-      const updatedOrders = user.orders.map(order =>
-        order.id === orderId ? { ...order, status: newStatus } : order
-      );
-      await axios.patch(`${UserApi}/${userId}`, { orders: updatedOrders });
-      await loadUsers();
+      await api.patch(`admin/order-management/${orderId}/`, { status: newStatus });
+      debouncedLoadOrders(pagination.current_page, searchQuery, selectedDate, statusFilter, ordering);
     } catch (err) {
       console.error("Error updating order status", err);
     } finally {
       setSavingOrderId(null);
     }
   };
-
-  const allOrders = users.flatMap(user =>
-  (user.orders || []).map(order => ({
-    ...order,
-    userId: user.id,
-    userName: user.name,
-    userEmail: user.email
-  }))
-).sort((a, b) => new Date(b.date) - new Date(a.date)); // sort by date desc
-
-  const filteredOrders = allOrders.filter(order => {
-    const matchesSearch = 
-      order.id.toString().includes(searchQuery.toLowerCase()) ||
-      order.userEmail.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesDate = selectedDate
-      ? new Date(order.date).toISOString().split("T")[0] === selectedDate
-      : true;
-
-    const matchesStatus = statusFilter === "all" 
-      ? true 
-      : order.status.toLowerCase() === statusFilter.toLowerCase();
-
-    return matchesSearch && matchesDate && matchesStatus;
-  });
-
-  const cancelledOrders = allOrders.filter(order => order.status === "Cancelled");
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -81,6 +100,10 @@ export default function OrderManagement() {
       default: return "bg-gray-500/20 text-gray-400";
     }
   };
+
+  // Calculate stats for display
+  const allOrders = orders;
+  const cancelledOrders = orders.filter(order => order.status === "Cancelled");
 
   return (
     <div className="min-h-screen bg-gray-950 p-4 sm:p-6">
@@ -96,7 +119,7 @@ export default function OrderManagement() {
             <p className="text-sm text-gray-400 mt-1">Manage and track all customer orders</p>
           </div>
           <button
-            onClick={loadUsers}
+            onClick={() => debouncedLoadOrders(1, searchQuery, selectedDate, statusFilter, ordering)}
             className="flex items-center gap-2 px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium rounded-xl shadow transition"
           >
             <FiRefreshCw className="text-lg" /> Refresh Orders
@@ -105,7 +128,8 @@ export default function OrderManagement() {
 
         {/* Filters Section */}
         <div className="bg-gray-900 p-4 sm:p-6 rounded-2xl shadow-lg">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {/* Search */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FiSearch className="text-gray-500" />
@@ -114,10 +138,12 @@ export default function OrderManagement() {
                 type="text"
                 placeholder="Search orders..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setPagination(prev => ({ ...prev, current_page: 1 })); setSearchQuery(e.target.value); }}
                 className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-800 border border-gray-700 text-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
               />
             </div>
+            
+            {/* Date */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FiCalendar className="text-gray-500" />
@@ -125,17 +151,19 @@ export default function OrderManagement() {
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                onChange={(e) => { setPagination(prev => ({ ...prev, current_page: 1 })); setSelectedDate(e.target.value); }}
                 className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-800 border border-gray-700 text-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
               />
             </div>
+            
+            {/* Status Filter */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <FiFilter className="text-gray-500" />
               </div>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => { setPagination(prev => ({ ...prev, current_page: 1 })); setStatusFilter(e.target.value); }}
                 className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-800 border border-gray-700 text-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent appearance-none"
               >
                 <option value="all">All Statuses</option>
@@ -145,11 +173,29 @@ export default function OrderManagement() {
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
+
+            {/* Ordering */}
+            <div className="relative">
+              <select
+                value={ordering}
+                onChange={(e) => { setPagination(prev => ({ ...prev, current_page: 1 })); setOrdering(e.target.value); }}
+                className="w-full pl-4 pr-4 py-2 rounded-xl bg-gray-800 border border-gray-700 text-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 appearance-none"
+              >
+                <option value="-created_at">Newest First</option>
+                <option value="created_at">Oldest First</option>
+                <option value="-total">Highest Total</option>
+                <option value="total">Lowest Total</option>
+              </select>
+            </div>
+
+            {/* Clear Filters */}
             <button
-              onClick={() => { 
-                setSearchQuery(""); 
-                setSelectedDate(""); 
+              onClick={() => {
+                setPagination(prev => ({ ...prev, current_page: 1 }));
+                setSearchQuery("");
+                setSelectedDate("");
                 setStatusFilter("all");
+                setOrdering("-created_at");
               }}
               className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl transition"
             >
@@ -166,7 +212,7 @@ export default function OrderManagement() {
             onClick={() => setStatusFilter("all")}
           >
             <div className="text-sm text-gray-400">Total Orders</div>
-            <div className="text-2xl font-bold text-yellow-400">{allOrders.length}</div>
+            <div className="text-2xl font-bold text-yellow-400">{stats.all}</div>
           </motion.div>
           <motion.div 
             whileHover={{ y: -3 }}
@@ -175,7 +221,7 @@ export default function OrderManagement() {
           >
             <div className="text-sm text-gray-400">Pending</div>
             <div className="text-2xl font-bold text-blue-400">
-              {allOrders.filter(o => o.status === "Pending").length}
+              {stats.pending}
             </div>
           </motion.div>
           <motion.div 
@@ -185,7 +231,7 @@ export default function OrderManagement() {
           >
             <div className="text-sm text-gray-400">Processing</div>
             <div className="text-2xl font-bold text-orange-400">
-              {allOrders.filter(o => o.status === "Processing").length}
+              {stats.processing}
             </div>
           </motion.div>
           <motion.div 
@@ -195,7 +241,7 @@ export default function OrderManagement() {
           >
             <div className="text-sm text-gray-400">Delivered</div>
             <div className="text-2xl font-bold text-green-400">
-              {allOrders.filter(o => o.status === "Delivered").length}
+              {stats.delivered}
             </div>
           </motion.div>
           <motion.div 
@@ -205,7 +251,7 @@ export default function OrderManagement() {
           >
             <div className="text-sm text-gray-400">Cancelled</div>
             <div className="text-2xl font-bold text-red-400">
-              {cancelledOrders.length}
+              {stats.cancelled}
             </div>
           </motion.div>
         </div>
@@ -215,13 +261,13 @@ export default function OrderManagement() {
           <div className="flex justify-center items-center h-64 bg-gray-900 rounded-2xl">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-400"></div>
           </div>
-        ) : filteredOrders.length > 0 ? (
+        ) : orders.length > 0 ? (
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-gray-200">
               {statusFilter === "all" ? "All Orders" : `${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} Orders`}
             </h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {filteredOrders.map(order => (
+              {orders.map(order => (
                 <OrderCard 
                   key={order.id} 
                   order={order} 
@@ -230,6 +276,27 @@ export default function OrderManagement() {
                   savingOrderId={savingOrderId}
                 />
               ))}
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex justify-center items-center gap-4 mt-6">
+              <button
+                disabled={pagination.current_page <= 1}
+                onClick={() => setPagination(prev => ({ ...prev, current_page: prev.current_page - 1 }))}
+                className="px-4 py-2 rounded-xl bg-gray-800 text-gray-200 disabled:opacity-50 hover:bg-gray-700 transition"
+              >
+                Previous
+              </button>
+              <span className="text-gray-400">
+                Page {pagination.current_page} of {pagination.total_pages}
+              </span>
+              <button
+                disabled={pagination.current_page >= pagination.total_pages}
+                onClick={() => setPagination(prev => ({ ...prev, current_page: prev.current_page + 1 }))}
+                className="px-4 py-2 rounded-xl bg-gray-800 text-gray-200 disabled:opacity-50 hover:bg-gray-700 transition"
+              >
+                Next
+              </button>
             </div>
           </div>
         ) : (
@@ -270,8 +337,27 @@ export default function OrderManagement() {
   );
 }
 
-// Extracted Order Card Component for better readability
+// Order Card Component with previous UI style
 function OrderCard({ order, getStatusColor, updateOrderStatus, savingOrderId }) {
+  const formatPrice = (price) => {
+    return `₹${parseInt(price).toLocaleString()}`;
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const truncateText = (text, maxLength = 20) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -286,7 +372,7 @@ function OrderCard({ order, getStatusColor, updateOrderStatus, savingOrderId }) 
             <h3 className="text-lg font-bold text-yellow-400">Order #{order.id}</h3>
             <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
               <FiCalendar className="text-yellow-500" />
-              <span>{new Date(order.date).toLocaleString()}</span>
+              <span>{formatDate(order.created_at)}</span>
             </div>
           </div>
           <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
@@ -302,24 +388,22 @@ function OrderCard({ order, getStatusColor, updateOrderStatus, savingOrderId }) 
             <FiUser className="text-lg" />
           </div>
           <div>
-            <h4 className="font-medium text-gray-200">{order.userName}</h4>
-            <p className="text-sm text-gray-400">{order.userEmail}</p>
+            <h4 className="font-medium text-gray-200">{order.user_name}</h4>
+            <p className="text-sm text-gray-400">{order.shipping_info.email}</p>
           </div>
         </div>
-        {order.shippingInfo && (
-          <div className="pl-11 space-y-1 text-sm text-gray-400">
-            <p className="flex items-center gap-2">
-              <span className="font-medium text-gray-300">Phone:</span> {order.shippingInfo.phone}
-            </p>
-            <p className="flex items-start gap-2">
-              <span className="font-medium text-gray-300">Address:</span>
-              <span>
-                {order.shippingInfo.address}, {order.shippingInfo.city},<br />
-                {order.shippingInfo.state} - {order.shippingInfo.zip}
-              </span>
-            </p>
-          </div>
-        )}
+        <div className="pl-11 space-y-1 text-sm text-gray-400">
+          <p className="flex items-center gap-2">
+            <span className="font-medium text-gray-300">Phone:</span> {order.shipping_info.phone}
+          </p>
+          <p className="flex items-start gap-2">
+            <span className="font-medium text-gray-300">Address:</span>
+            <span>
+              {order.shipping_info.address}, {order.shipping_info.city},<br />
+              {order.shipping_info.state} - {order.shipping_info.zip_code}
+            </span>
+          </p>
+        </div>
       </div>
 
       {/* Order Items */}
@@ -334,19 +418,51 @@ function OrderCard({ order, getStatusColor, updateOrderStatus, savingOrderId }) 
           {order.items.map(item => (
             <div key={item.id} className="flex items-center gap-3">
               <img 
-                src={item.image[0]} 
-                alt={item.name} 
+                src={item.product_image} 
+                alt={item.product_name} 
                 className="h-12 w-12 rounded-lg object-cover border border-gray-700"
               />
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-200">{item.name}</p>
+                <p className="text-sm font-medium text-gray-200">{item.product_name}</p>
                 <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
               </div>
-              <p className="text-sm font-medium text-yellow-400">₹{item.price.toLocaleString()}</p>
+              <p className="text-sm font-medium text-yellow-400">{formatPrice(item.price)}</p>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Razorpay Payment Details */}
+      {order.payment_method === "Razorpay" && (
+        <div className="p-5 border-b border-gray-800 bg-purple-500/5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400">
+              <FiCreditCard className="text-lg" />
+            </div>
+            <h4 className="font-medium text-gray-200">Razorpay Payment Details</h4>
+          </div>
+          <div className="pl-11 space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400 font-medium">Order ID:</span>
+              <span className="text-gray-200 font-mono text-xs">
+                {truncateText(order.razorpay_order_id, 24)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400 font-medium">Payment ID:</span>
+              <span className="text-gray-200 font-mono text-xs">
+                {truncateText(order.razorpay_payment_id, 24)}
+              </span>
+            </div>
+            <div className="flex justify-between items-start">
+              <span className="text-gray-400 font-medium">Signature:</span>
+              <span className="text-gray-200 font-mono text-xs text-right">
+                {truncateText(order.razorpay_signature, 30)}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Order Summary */}
       <div className="p-5">
@@ -357,37 +473,32 @@ function OrderCard({ order, getStatusColor, updateOrderStatus, savingOrderId }) 
             </div>
             <div>
               <p className="text-xs text-gray-400">Subtotal</p>
-              <p className="font-medium text-gray-200">₹{order.subtotal?.toLocaleString() || order.total.toLocaleString()}</p>
+              <p className="font-medium text-gray-200">{formatPrice(order.subtotal)}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gray-800 rounded-lg text-yellow-400">
+            <div className={`p-2 bg-gray-800 rounded-lg ${
+              order.payment_method === "Razorpay" ? "text-purple-400" : "text-yellow-400"
+            }`}>
               <FiCreditCard className="text-lg" />
             </div>
             <div>
               <p className="text-xs text-gray-400">Payment</p>
-              <p className="font-medium text-gray-200 capitalize">{order.paymentMethod}</p>
+              <p className="font-medium text-gray-200 capitalize">{order.payment_method}</p>
             </div>
           </div>
         </div>
 
-        {order.discount > 0 && (
+        {parseFloat(order.discount) > 0 && (
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-gray-400">Discount</span>
-            <span className="text-sm text-red-400">-₹{order.discount.toLocaleString()}</span>
-          </div>
-        )}
-
-        {order.couponUsed && (
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-400">Coupon Applied</span>
-            <span className="text-sm text-green-400">{order.couponUsed}</span>
+            <span className="text-sm text-red-400">-{formatPrice(order.discount)}</span>
           </div>
         )}
 
         <div className="flex justify-between items-center pt-3 border-t border-gray-800">
           <span className="font-bold text-gray-200">Total</span>
-          <span className="text-xl font-bold text-yellow-400">₹{order.total.toLocaleString()}</span>
+          <span className="text-xl font-bold text-yellow-400">{formatPrice(order.total)}</span>
         </div>
 
         {/* Status Update */}
@@ -397,7 +508,7 @@ function OrderCard({ order, getStatusColor, updateOrderStatus, savingOrderId }) 
           </div>
           <select
             value={order.status}
-            onChange={(e) => updateOrderStatus(order.userId, order.id, e.target.value)}
+            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
             disabled={savingOrderId === order.id}
             className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:ring-2 focus:ring-yellow-400"
           >

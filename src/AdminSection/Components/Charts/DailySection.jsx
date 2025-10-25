@@ -4,49 +4,32 @@ import SalesTable from "../Table/SalesTable";
 import DailySalesChart from "./DailySalesChart";
 import DailyStats from "./DailyStats";
 import { useState, useEffect } from "react";
-
-export default function DailySection({ allOrders }) {
+import axios from "axios";
+import api from "../../../API/axios";
+export default function DailySection() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dailyTotals, setDailyTotals] = useState({});
   const [dailySalesData, setDailySalesData] = useState([]);
 
   useEffect(() => {
-    const selectedDayOrders = allOrders.filter(order => {
-      const d = new Date(order.date);
-      return d.toDateString() === selectedDate.toDateString();
-    });
+    const fetchDailyData = async () => {
+      try {
+        const formattedDate = selectedDate.toISOString().split("T")[0]; // "YYYY-MM-DD"
+        const response = await api.get(
+          `admin/daily-sales/?date=${formattedDate}`
+        );
 
-    const hourly = Array.from({ length: 24 }, (_, hour) => {
-      const ordersAtHour = selectedDayOrders.filter(order =>
-        new Date(order.date).getHours() === hour
-      );
-      const revenue = ordersAtHour.reduce((sum, o) => sum + (o.total || 0), 0);
-      return {
-        hour: `${hour}:00`,
-        orders: ordersAtHour.length,
-        revenue: revenue,
-        profit: revenue * 0.25
-      };
-    }).filter(h => h.orders > 0);
+        const data = response.data;
 
-    const totalRevenue = selectedDayOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-    const totalProfit = totalRevenue * 0.25;
-
-    const totals = {
-      orders: selectedDayOrders.length,
-      revenue: totalRevenue,
-      profit: totalProfit,
-      avgOrderValue: selectedDayOrders.length
-        ? totalRevenue / selectedDayOrders.length
-        : 0,
-      avgProfitPerOrder: selectedDayOrders.length
-        ? totalProfit / selectedDayOrders.length
-        : 0
+        setDailyTotals(data.daily_totals || {});
+        setDailySalesData(data.hourly_sales || []);
+      } catch (error) {
+        console.error("Error fetching daily analytics:", error);
+      }
     };
 
-    setDailyTotals(totals);
-    setDailySalesData(hourly);
-  }, [selectedDate, allOrders]);
+    fetchDailyData();
+  }, [selectedDate]);
 
   return (
     <motion.div
@@ -61,12 +44,15 @@ export default function DailySection({ allOrders }) {
             Hourly Sales, Revenue & Profit for {selectedDate.toDateString()}
           </h3>
           <p className="text-sm text-gray-400 max-w-md">
-            This chart shows how your orders, revenue, and profit vary across each hour, helping you identify peak business hours.
+            This chart shows how your orders, revenue, and profit vary across
+            each hour, helping you identify peak business hours.
           </p>
         </div>
 
         <div className="flex flex-col items-start sm:items-end">
-          <span className="text-xs text-gray-400 mb-1">Select a day to view sales summary:</span>
+          <span className="text-xs text-gray-400 mb-1">
+            Select a day to view sales summary:
+          </span>
           <DatePicker
             selected={selectedDate}
             onChange={(date) => setSelectedDate(date)}

@@ -7,8 +7,13 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { motion } from "framer-motion";
+import api from "../../../API/axios";
 
-export default function OrderStatus({ pieData }) {
+
+export default function OrderStatus() {
+  const [pieData, setPieData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
   const [outerRadius, setOuterRadius] = useState(125);
 
@@ -27,6 +32,35 @@ export default function OrderStatus({ pieData }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Fetch order stats from API
+  useEffect(() => {
+    const fetchOrderStats = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get("admin/order-management/");
+        
+        // Transform the stats data into pie chart format
+        const stats = res.data.stats;
+        const transformedData = [
+          { name: "Pending", value: stats.pending },
+          { name: "Processing", value: stats.processing },
+          { name: "Delivered", value: stats.delivered },
+          { name: "Cancelled", value: stats.cancelled },
+        ].filter(item => item.value > 0); // Only show statuses with orders
+        
+        setPieData(transformedData);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching order stats", err);
+        setError("Failed to load order statistics");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrderStats();
+  }, []);
+
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -37,12 +71,56 @@ export default function OrderStatus({ pieData }) {
             <span className="text-gray-400">Count: </span>
             <span className="font-medium">{data.value}</span>
           </p>
-          
         </div>
       );
     }
     return null;
   };
+
+  if (loading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6 }}
+        className="bg-gray-800/70 border border-gray-700 rounded-xl p-4 sm:p-6 shadow-lg"
+      >
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-400"></div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (error) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6 }}
+        className="bg-gray-800/70 border border-gray-700 rounded-xl p-4 sm:p-6 shadow-lg"
+      >
+        <div className="text-center text-red-400 py-8">
+          <p>{error}</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (pieData.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6 }}
+        className="bg-gray-800/70 border border-gray-700 rounded-xl p-4 sm:p-6 shadow-lg"
+      >
+        <div className="text-center text-gray-400 py-8">
+          <p>No order data available</p>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
