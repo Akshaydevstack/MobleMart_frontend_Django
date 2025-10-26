@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../../API/axios"; // your axios instance
+import api from "../../API/axios"; 
 
 export default function BrandFilter({ selectedBrand, setSelectedBrand }) {
   const [brands, setBrands] = useState([{ id: null, name: "All" }]); // default "All"

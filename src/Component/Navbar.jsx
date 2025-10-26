@@ -7,7 +7,7 @@ import {
   User,
   Heart,
   PackageCheck,
-  Bell
+  Bell,
 } from "lucide-react";
 import { AuthContext } from "../Context/AuthProvider";
 
@@ -17,7 +17,14 @@ export default function Navbar() {
   const location = useLocation();
   const currentPath = location.pathname;
 
-  const { user, logout, cartLength, setCartLength } = useContext(AuthContext);
+  const {
+    user,
+    logout,
+    cartLength,
+    setCartLength,
+    setHasNewNotification,
+    hasNewNotification,
+  } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handillogout = () => {
@@ -40,19 +47,31 @@ export default function Navbar() {
         <div className="hidden md:flex space-x-6 items-center">
           <Link
             to="/"
-            className={`${currentPath === "/" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+            className={`${
+              currentPath === "/"
+                ? "text-yellow-400 font-semibold"
+                : "text-white"
+            } hover:text-yellow-400 transition`}
           >
             Home
           </Link>
           <Link
             to="/shop"
-            className={`${currentPath === "/shop" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+            className={`${
+              currentPath === "/shop"
+                ? "text-yellow-400 font-semibold"
+                : "text-white"
+            } hover:text-yellow-400 transition`}
           >
             Shop
           </Link>
           <Link
             to="/cart"
-            className={`relative flex items-center ${currentPath === "/cart" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+            className={`relative flex items-center ${
+              currentPath === "/cart"
+                ? "text-yellow-400 font-semibold"
+                : "text-white"
+            } hover:text-yellow-400 transition`}
           >
             <ShoppingCart className="w-5 h-5 mr-1" /> Cart
             {cartLength > 0 && (
@@ -66,21 +85,40 @@ export default function Navbar() {
             <>
               <Link
                 to="/wishlist"
-                className={`flex items-center ${currentPath === "/wishlist" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+                className={`flex items-center ${
+                  currentPath === "/wishlist"
+                    ? "text-yellow-400 font-semibold"
+                    : "text-white"
+                } hover:text-yellow-400 transition`}
               >
                 <Heart className="w-5 h-5 mr-1" /> Wishlist
               </Link>
               <Link
                 to="/orders"
-                className={`flex items-center ${currentPath === "/orders" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+                className={`flex items-center ${
+                  currentPath === "/orders"
+                    ? "text-yellow-400 font-semibold"
+                    : "text-white"
+                } hover:text-yellow-400 transition`}
               >
                 <PackageCheck className="w-5 h-5 mr-1" /> Orders
               </Link>
               <Link
                 to="/UserNotifications"
-                className={`flex items-center ${currentPath === "/notifications" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+                onClick={() => setHasNewNotification(false)} // ✅ Mark as seen
+                className={`relative flex items-center ${
+                  currentPath === "/UserNotifications"
+                    ? "text-yellow-400 font-semibold"
+                    : "text-white"
+                } hover:text-yellow-400 transition`}
               >
-                <Bell className="w-5 h-5 mr-1" /> Notifications
+                {/* 🔔 Bell turns red when notification exists */}
+                <Bell
+                  className={`w-5 h-5 mr-1 transition-colors duration-300 ${
+                    hasNewNotification ? "text-red-500 animate-pulse" : ""
+                  }`}
+                />
+                Notifications
               </Link>
             </>
           )}
@@ -103,7 +141,11 @@ export default function Navbar() {
           ) : (
             <Link
               to="/login"
-              className={`flex items-center px-4 py-2 rounded-full transition ${currentPath === "/login" ? "bg-yellow-400 text-black" : "bg-yellow-400 text-black hover:bg-yellow-300"}`}
+              className={`flex items-center px-4 py-2 rounded-full transition ${
+                currentPath === "/login"
+                  ? "bg-yellow-400 text-black"
+                  : "bg-yellow-400 text-black hover:bg-yellow-300"
+              }`}
             >
               <LogIn className="w-5 h-5 mr-2" /> Login
             </Link>
@@ -145,21 +187,33 @@ export default function Navbar() {
             <Link
               to="/"
               onClick={() => setMenuOpen(false)}
-              className={`${currentPath === "/" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+              className={`${
+                currentPath === "/"
+                  ? "text-yellow-400 font-semibold"
+                  : "text-white"
+              } hover:text-yellow-400 transition`}
             >
               Home
             </Link>
             <Link
               to="/shop"
               onClick={() => setMenuOpen(false)}
-              className={`${currentPath === "/shop" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+              className={`${
+                currentPath === "/shop"
+                  ? "text-yellow-400 font-semibold"
+                  : "text-white"
+              } hover:text-yellow-400 transition`}
             >
               Shop
             </Link>
             <Link
               to="/cart"
               onClick={() => setMenuOpen(false)}
-              className={`relative flex items-center ${currentPath === "/cart" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+              className={`relative flex items-center ${
+                currentPath === "/cart"
+                  ? "text-yellow-400 font-semibold"
+                  : "text-white"
+              } hover:text-yellow-400 transition`}
             >
               <ShoppingCart className="w-5 h-5 mr-1" /> Cart
             </Link>
@@ -169,23 +223,39 @@ export default function Navbar() {
                 <Link
                   to="/wishlist"
                   onClick={() => setMenuOpen(false)}
-                  className={`flex items-center ${currentPath === "/wishlist" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+                  className={`flex items-center ${
+                    currentPath === "/wishlist"
+                      ? "text-yellow-400 font-semibold"
+                      : "text-white"
+                  } hover:text-yellow-400 transition`}
                 >
                   <Heart className="w-5 h-5 mr-1" /> Wishlist
                 </Link>
                 <Link
                   to="/orders"
                   onClick={() => setMenuOpen(false)}
-                  className={`flex items-center ${currentPath === "/orders" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+                  className={`flex items-center ${
+                    currentPath === "/orders"
+                      ? "text-yellow-400 font-semibold"
+                      : "text-white"
+                  } hover:text-yellow-400 transition`}
                 >
                   <PackageCheck className="w-5 h-5 mr-1" /> Orders
                 </Link>
                 <Link
                   to="/UserNotifications"
-                  onClick={() => setMenuOpen(false)}
-                  className={`flex items-center ${currentPath === "/notifications" ? "text-yellow-400 font-semibold" : "text-white"} hover:text-yellow-400 transition`}
+                  onClick={() => setHasNewNotification(false)} // ✅ Mark as seen
+                  className={`relative flex items-center ${
+                    currentPath === "/UserNotifications"
+                      ? "text-yellow-400 font-semibold"
+                      : "text-white"
+                  } hover:text-yellow-400 transition`}
                 >
                   <Bell className="w-5 h-5 mr-1" /> Notifications
+                  {/* 🔴 Notification indicator */}
+                  {hasNewNotification && (
+                    <span className="absolute top-0 right-0 block w-2 h-2 bg-red-500 rounded-full"></span>
+                  )}
                 </Link>
               </>
             )}

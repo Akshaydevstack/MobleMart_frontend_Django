@@ -28,6 +28,7 @@ export default function ProductManagement() {
   const [showNewBrandInput, setShowNewBrandInput] = useState(false);
   const [newBrandName, setNewBrandName] = useState("");
   const [newBrandDescription, setNewBrandDescription] = useState("");
+  const [currentImageInput, setCurrentImageInput] = useState("");
   const [pagination, setPagination] = useState({
     current_page: 1,
     total_pages: 1,
@@ -40,6 +41,7 @@ export default function ProductManagement() {
     outofstock: 0,
     lowstock: 0,
     inactive: 0,
+    upcoming_products: 0,
   });
 
   // Debounced search function
@@ -58,7 +60,13 @@ export default function ProductManagement() {
           if (searchTerm) params.search = searchTerm;
           if (brand !== "all") params.brand_id = brand;
           if (stock !== "all") params.stock = stock;
-          if (active !== "all") params.active = active; // Fixed: added active parameter
+          if (active !== "all") {
+            if (active === "upcoming") {
+              params.upcoming = true;
+            } else {
+              params.active = active === "active";
+            }
+          }
 
           const res = await api.get("admin/manage-products/", { params });
 
@@ -74,7 +82,8 @@ export default function ProductManagement() {
             active_products: res.data.active_products,
             outofstock: res.data.outofstock,
             lowstock: res.data.lowstock,
-            inactive: res.data.inactive || 0, // Added fallback for inactive count
+            inactive: res.data.inactive || 0,
+            upcoming_products: res.data.upcoming_products || 0,
           });
         } catch (err) {
           console.error("Error loading products", err);
@@ -116,6 +125,7 @@ export default function ProductManagement() {
       description: "",
       count: 0,
       is_active: true,
+      upcoming: false,
       images: [],
     };
   }
@@ -129,6 +139,7 @@ export default function ProductManagement() {
       description: product.description,
       count: product.count,
       is_active: product.is_active,
+      upcoming: product.upcoming,
       images: product.image_urls,
     });
     setShowNewBrandInput(false);
@@ -168,6 +179,7 @@ export default function ProductManagement() {
         price: parseFloat(formData.price).toFixed(2),
         count: parseInt(formData.count),
         images: formData.images,
+        upcoming: formData.upcoming,
       };
 
       if (editingProduct) {
@@ -221,12 +233,48 @@ export default function ProductManagement() {
     }
   };
 
-  const handleImageUrlChange = (e) => {
-    const urls = e.target.value.split("\n").filter((url) => url.trim() !== "");
-    setFormData({ ...formData, images: urls });
+  // Handle image input with comma separation
+  const handleImageInputKeyDown = (e) => {
+    if (e.key === ',' || e.key === 'Enter') {
+      e.preventDefault();
+      const url = currentImageInput.trim();
+      
+      if (url && !formData.images.includes(url)) {
+        setFormData({
+          ...formData,
+          images: [...formData.images, url]
+        });
+      }
+      
+      setCurrentImageInput('');
+    }
   };
 
-  // ✅ Handle filter changes with debouncing
+  // Handle paste event for multiple URLs
+  const handleImageInputPaste = (e) => {
+    const pastedText = e.clipboardData.getData('text');
+    const urls = pastedText.split(',')
+      .map(url => url.trim())
+      .filter(url => url !== '');
+    
+    if (urls.length > 1) {
+      e.preventDefault();
+      const uniqueUrls = urls.filter(url => !formData.images.includes(url));
+      setFormData({
+        ...formData,
+        images: [...formData.images, ...uniqueUrls]
+      });
+      setCurrentImageInput('');
+    }
+  };
+
+  // Handle removing individual image
+  const handleRemoveImage = (index) => {
+    const updatedImages = formData.images.filter((_, i) => i !== index);
+    setFormData({ ...formData, images: updatedImages });
+  };
+
+  // Handle filter changes with debouncing
   const handleSearchChange = (value) => {
     setSearch(value);
     debouncedLoadProducts(1, value, brandFilter, stockFilter, activeFilter);
@@ -270,7 +318,7 @@ export default function ProductManagement() {
         >
           <div>
             <h1 className="text-3xl font-bold text-yellow-400">
-              ProductManagement
+              Product Management
             </h1>
             <p className="text-sm text-gray-400">
               Manage your product inventory
@@ -298,6 +346,7 @@ export default function ProductManagement() {
               <option value="all">All Status</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
+              <option value="upcoming">Upcoming</option>
             </select>
 
             <select
@@ -333,7 +382,7 @@ export default function ProductManagement() {
         </motion.div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
           {/* Total Products */}
           <motion.div
             onClick={() => {
@@ -379,6 +428,22 @@ export default function ProductManagement() {
             <div className="text-gray-400 text-sm">Inactive Products</div>
             <div className="text-3xl font-bold text-red-500">
               {stats.inactive}
+            </div>
+          </motion.div>
+
+          {/* Upcoming Products */}
+          <motion.div
+            onClick={() => {
+              setStockFilter("all");
+              setActiveFilter("upcoming");
+              debouncedLoadProducts(1, search, brandFilter, "all", "upcoming");
+            }}
+            whileHover={{ y: -3 }}
+            className="bg-gray-900 p-6 rounded-3xl shadow-lg cursor-pointer"
+          >
+            <div className="text-gray-400 text-sm">Upcoming Products</div>
+            <div className="text-3xl font-bold text-blue-400">
+              {stats.upcoming_products}
             </div>
           </motion.div>
 
@@ -449,6 +514,7 @@ export default function ProductManagement() {
                 <span className="ml-1 px-2 py-1 bg-gray-700 rounded-md text-yellow-400">
                   {activeFilter === "active" && "Active Products"}
                   {activeFilter === "inactive" && "Inactive Products"}
+                  {activeFilter === "upcoming" && "Upcoming Products"}
                 </span>
               )}
             </span>
@@ -559,12 +625,14 @@ export default function ProductManagement() {
                       <td className="px-6 py-4">
                         <span
                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            product.is_active
+                            product.upcoming
+                              ? "bg-blue-400/20 text-blue-300"
+                              : product.is_active
                               ? "bg-green-400/20 text-green-300"
                               : "bg-red-400/20 text-red-300"
                           }`}
                         >
-                          {product.is_active ? "Active" : "Inactive"}
+                          {product.upcoming ? "Upcoming" : product.is_active ? "Active" : "Inactive"}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -777,6 +845,29 @@ export default function ProductManagement() {
                           </label>
                         </div>
                       </div>
+                      <div className="space-y-1">
+                        <label className="block text-sm font-medium text-gray-400">
+                          Product Type
+                        </label>
+                        <div className="flex items-center mt-1">
+                          <label className="inline-flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={formData.upcoming}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  upcoming: e.target.checked,
+                                })
+                              }
+                              className="w-4 h-4 text-blue-400 bg-gray-800 border-gray-700 rounded focus:ring-blue-400"
+                            />
+                            <span className="ml-2 text-sm text-gray-300">
+                              Upcoming Product
+                            </span>
+                          </label>
+                        </div>
+                      </div>
                       <div className="space-y-1 sm:col-span-2">
                         <label className="block text-sm font-medium text-gray-400">
                           Description
@@ -800,28 +891,70 @@ export default function ProductManagement() {
                   <div className="w-full md:w-1/3 space-y-4">
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-400">
-                        Product Image URLs
+                        Product Image URLs ({formData.images.length} images)
                       </label>
-                      <div className="h-48 bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
-                        {formData.images[0] ? (
-                          <img
-                            src={formData.images[0]}
-                            alt="Preview"
-                            className="w-full h-full object-contain"
-                          />
+                      
+                      {/* Multiple Image Preview */}
+                      <div className="h-48 bg-gray-800 border border-gray-700 rounded-lg overflow-y-auto p-2">
+                        {formData.images.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {formData.images.map((url, index) => (
+                              <div key={index} className="relative group">
+                                <img
+                                  src={url}
+                                  alt={`Preview ${index + 1}`}
+                                  className="w-full h-20 object-cover rounded border border-gray-600"
+                                  onError={(e) => {
+                                    e.target.src = 'https://via.placeholder.com/150?text=Invalid+URL';
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImage(index)}
+                                  className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         ) : (
                           <div className="h-full flex items-center justify-center text-gray-500">
-                            <FiImage size={48} className="opacity-50" />
+                            <div className="text-center">
+                              <FiImage size={48} className="opacity-50 mx-auto mb-2" />
+                              <p className="text-sm">No images added</p>
+                            </div>
                           </div>
                         )}
                       </div>
-                      <textarea
-                        placeholder="Enter image URLs (one per line)"
-                        value={formData.images.join("\n")}
-                        onChange={handleImageUrlChange}
-                        rows={3}
-                        className="w-full px-3 py-2 rounded-lg border border-gray-700 bg-gray-800 text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                      />
+
+                      {/* Image URL Input */}
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          placeholder="Type image URL and press comma to add (or paste multiple URLs separated by commas)"
+                          value={currentImageInput}
+                          onChange={(e) => setCurrentImageInput(e.target.value)}
+                          onKeyDown={handleImageInputKeyDown}
+                          onPaste={handleImageInputPaste}
+                          className="w-full px-3 py-2 rounded-lg border border-gray-700 bg-gray-800 text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-sm"
+                        />
+                        
+                        {/* Display current images as comma-separated string */}
+                        <div className="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                          <label className="block text-xs font-medium text-gray-400 mb-2">
+                            Current Images (comma separated):
+                          </label>
+                          <div className="text-sm text-gray-300 break-words">
+                            {formData.images.length > 0 ? formData.images.join(", ") : "No images added yet"}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Image Count Info */}
+                      <div className="text-xs text-gray-400">
+                        {formData.images.length} image(s) added. Type URL and press comma to add.
+                      </div>
                     </div>
                   </div>
                 </div>

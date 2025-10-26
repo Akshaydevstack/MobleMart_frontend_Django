@@ -14,6 +14,7 @@ export default function AuthProvider({ children }) {
   const [cartLength, setCartLength] = useState(0);
   const [abandoned, setAbandoned] = useState(0);
   const navigate = useNavigate();
+  const [hasNewNotification, setHasNewNotification] = useState(false); // ✅
 
   // Helper: fetch cart info
   const fetchCart = async () => {
@@ -99,7 +100,9 @@ export default function AuthProvider({ children }) {
         abandoned,
         setAbandoned,
         register,
-        updateUser
+        updateUser,
+        hasNewNotification,
+        setHasNewNotification,
       }}
     >
       {children}

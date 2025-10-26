@@ -9,13 +9,24 @@ import {
   FiDownload,
   FiChevronLeft,
   FiChevronRight,
+  FiUsers,
+  FiShoppingCart,
+  FiDollarSign,
+  FiTrendingUp,
+  FiPackage,
+  FiUserCheck,
+  FiStar,
+  FiBarChart2,
 } from "react-icons/fi";
-import { Bar } from "react-chartjs-2";
+import { Bar, Doughnut, Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
+  LineElement,
+  PointElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend,
@@ -26,14 +37,17 @@ ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
+  LineElement,
+  PointElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend
 );
 
 export default function BusinessAnalytics() {
-  const [users, setUsers] = useState([]);
-  const [chartData, setChartData] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [analyticsData, setAnalyticsData] = useState({});
   const [filterType, setFilterType] = useState("monthly");
   const [startDate, setStartDate] = useState(
     format(subMonths(new Date(), 1), "yyyy-MM-dd")
@@ -41,34 +55,28 @@ export default function BusinessAnalytics() {
   const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [showDetails, setShowDetails] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeChart, setActiveChart] = useState("daily"); // daily, monthly, products
   const [pagination, setPagination] = useState({
     count: 0,
     next: null,
     previous: null,
     currentPage: 1,
   });
-  const [totalStats, setTotalStats] = useState({
-    totalSales: 0,
-    totalOrders: 0,
-    avgOrder: 0,
-  });
 
   useEffect(() => {
-    fetchUsers();
+    fetchAnalytics();
   }, []);
 
-  const fetchUsers = async (url = "admin/business-analytics/", page = 1) => {
+  const fetchAnalytics = async (url = "admin/business-analytics/", page = 1) => {
     try {
       setIsLoading(true);
 
-      // Build query parameters
       const params = new URLSearchParams();
       if (filterType === "range" && startDate && endDate) {
         params.append("start_date", startDate);
         params.append("end_date", endDate);
       }
 
-      // Add page parameter if it's not already in the URL
       if (url === "admin/business-analytics/") {
         params.append("page", page);
       }
@@ -78,7 +86,8 @@ export default function BusinessAnalytics() {
         : `${url}?${params.toString()}`;
 
       const res = await api.get(fullUrl);
-      setUsers(res.data.results);
+      setOrders(res.data.results);
+      setAnalyticsData(res.data.chart_data || {});
       setPagination({
         count: res.data.count,
         next: res.data.next,
@@ -86,30 +95,9 @@ export default function BusinessAnalytics() {
         currentPage: page,
       });
 
-      // Process chart data from backend response
-      if (res.data.chart_data) {
-        const { total_sales, total_orders, daily_sales } = res.data.chart_data;
-
-        // Set total stats from backend calculation
-        setTotalStats({
-          totalSales: total_sales,
-          totalOrders: total_orders,
-          avgOrder: total_orders ? (total_sales / total_orders).toFixed(2) : 0,
-        });
-
-        // Process chart data
-        const chartDataArray = Object.keys(daily_sales).map((date) => ({
-          date,
-          total: daily_sales[date],
-        }));
-
-        chartDataArray.sort((a, b) => new Date(a.date) - new Date(b.date));
-        setChartData(chartDataArray);
-      }
-
       setIsLoading(false);
     } catch (err) {
-      console.error("Error fetching users", err);
+      console.error("Error fetching analytics", err);
       setIsLoading(false);
     }
   };
@@ -118,7 +106,7 @@ export default function BusinessAnalytics() {
     setFilterType("monthly");
     setStartDate(format(subMonths(new Date(), 1), "yyyy-MM-dd"));
     setEndDate(format(new Date(), "yyyy-MM-dd"));
-    fetchUsers(); // Refresh with cleared filters
+    fetchAnalytics();
   };
 
   const applyDateFilter = () => {
@@ -128,69 +116,29 @@ export default function BusinessAnalytics() {
         return;
       }
     }
-    fetchUsers(); // Refresh with new filters
+    fetchAnalytics();
   };
 
-  const refreshData = () => fetchUsers();
-  const exportData = () => console.log("Exporting data...");
+  const refreshData = () => fetchAnalytics();
+  const exportData = () => {
+    const dataStr = JSON.stringify(analyticsData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `business-analytics-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+  };
 
   const handlePageChange = (url, page) => {
     if (url) {
-      fetchUsers(url, page);
+      fetchAnalytics(url, page);
     }
   };
 
   // Calculate total pages
-  const pageSize = 20; // same as backend
+  const pageSize = 20;
   const totalPages = Math.ceil(pagination.count / pageSize);
-
-  // Table orders (paginated data from backend)
-  const tableOrders = users.map((order) => ({
-    ...order,
-    date: format(new Date(order.created_at), "yyyy-MM-dd"),
-    total: parseFloat(order.total),
-  }));
-
-  // ChartJS data - using backend calculated data
-  const chartJSData = {
-    labels: chartData.map((item) => item.date),
-    datasets: [
-      {
-        label: "Total Sales",
-        data: chartData.map((item) => item.total),
-        backgroundColor: "rgba(250, 204, 21, 0.7)",
-        borderColor: "rgba(250, 204, 21, 1)",
-        borderWidth: 1,
-        borderRadius: 4,
-      },
-    ],
-  };
-
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (ctx) => `₹${ctx.raw.toLocaleString()}`,
-          title: (ctx) => `Date: ${ctx[0].label}`,
-        },
-        displayColors: false,
-        backgroundColor: "#333",
-        titleColor: "#fff",
-        bodyColor: "#fff",
-      },
-    },
-    scales: {
-      x: { grid: { color: "rgba(68, 68, 68, 0.5)" }, ticks: { color: "#ccc" } },
-      y: {
-        grid: { color: "rgba(68, 68, 68, 0.5)" },
-        ticks: { color: "#ccc", callback: (val) => `₹${val}` },
-      },
-    },
-    animation: { duration: 1500 },
-  };
 
   // Status badge colors
   const statusClasses = {
@@ -200,6 +148,155 @@ export default function BusinessAnalytics() {
     cancelled: "bg-red-900 text-red-200",
   };
 
+  // Chart data configurations
+  const dailySalesChart = {
+    labels: analyticsData.daily_sales ? Object.keys(analyticsData.daily_sales) : [],
+    datasets: [
+      {
+        label: "Daily Sales (₹)",
+        data: analyticsData.daily_sales ? Object.values(analyticsData.daily_sales) : [],
+        backgroundColor: "rgba(250, 204, 21, 0.7)",
+        borderColor: "rgba(250, 204, 21, 1)",
+        borderWidth: 2,
+        borderRadius: 4,
+        fill: true,
+      },
+    ],
+  };
+
+  const monthlySalesChart = {
+    labels: analyticsData.monthly_sales ? Object.keys(analyticsData.monthly_sales) : [],
+    datasets: [
+      {
+        label: "Monthly Sales (₹)",
+        data: analyticsData.monthly_sales ? Object.values(analyticsData.monthly_sales) : [],
+        backgroundColor: "rgba(59, 130, 246, 0.7)",
+        borderColor: "rgba(59, 130, 246, 1)",
+        borderWidth: 2,
+        fill: true,
+      },
+    ],
+  };
+
+  const bestSellingProductsChart = {
+    labels: analyticsData.best_selling_products 
+      ? analyticsData.best_selling_products.map(p => p.product__name) 
+      : [],
+    datasets: [
+      {
+        label: "Quantity Sold",
+        data: analyticsData.best_selling_products 
+          ? analyticsData.best_selling_products.map(p => p.total_qty) 
+          : [],
+        backgroundColor: [
+          "rgba(250, 204, 21, 0.8)",
+          "rgba(59, 130, 246, 0.8)",
+          "rgba(16, 185, 129, 0.8)",
+          "rgba(245, 158, 11, 0.8)",
+          "rgba(139, 92, 246, 0.8)",
+        ],
+        borderColor: [
+          "rgba(250, 204, 21, 1)",
+          "rgba(59, 130, 246, 1)",
+          "rgba(16, 185, 129, 1)",
+          "rgba(245, 158, 11, 1)",
+          "rgba(139, 92, 246, 1)",
+        ],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const orderStatusChart = {
+    labels: ["Completed", "Pending", "Cancelled", "Returned"],
+    datasets: [
+      {
+        data: [
+          analyticsData.completed_orders || 0,
+          analyticsData.pending_orders || 0,
+          analyticsData.cancelled_orders || 0,
+          analyticsData.returned_orders || 0,
+        ],
+        backgroundColor: [
+          "rgba(16, 185, 129, 0.8)",
+          "rgba(245, 158, 11, 0.8)",
+          "rgba(239, 68, 68, 0.8)",
+          "rgba(156, 163, 175, 0.8)",
+        ],
+        borderColor: [
+          "rgba(16, 185, 129, 1)",
+          "rgba(245, 158, 11, 1)",
+          "rgba(239, 68, 68, 1)",
+          "rgba(156, 163, 175, 1)",
+        ],
+        borderWidth: 2,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { 
+        display: true,
+        position: 'top',
+        labels: {
+          color: '#ccc',
+          font: { size: 12 }
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            if (ctx.dataset.label.includes('Sales')) {
+              return `₹${ctx.raw.toLocaleString()}`;
+            }
+            return `${ctx.dataset.label}: ${ctx.raw}`;
+          },
+        },
+        displayColors: true,
+        backgroundColor: '#1f2937',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: '#374151',
+        borderWidth: 1,
+      },
+    },
+    scales: {
+      x: { 
+        grid: { color: 'rgba(75, 85, 99, 0.3)' }, 
+        ticks: { color: '#9ca3af' } 
+      },
+      y: {
+        grid: { color: 'rgba(75, 85, 99, 0.3)' },
+        ticks: { 
+          color: '#9ca3af', 
+          callback: (val) => {
+            if (val >= 1000) return `₹${(val/1000).toFixed(0)}k`;
+            return `₹${val}`;
+          } 
+        },
+      },
+    },
+    animation: { duration: 1000 },
+  };
+
+  const doughnutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          color: '#ccc',
+          font: { size: 11 }
+        }
+      },
+    },
+    cutout: '60%',
+  };
+
   return (
     <div className="p-6 space-y-6 bg-gray-950 min-h-screen">
       {/* Header */}
@@ -207,26 +304,28 @@ export default function BusinessAnalytics() {
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-3xl font-bold text-yellow-400 mb-2">
-              Business Dashboard
+              Business Analytics Dashboard
             </h2>
             <p className="text-gray-400 text-sm">
-              Analyze sales trends and customer behavior
+              Comprehensive insights into sales, orders, and customer behavior
             </p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={refreshData}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 transition-colors"
               title="Refresh data"
             >
               <FiRefreshCw className={isLoading ? "animate-spin" : ""} />
+              Refresh
             </button>
             <button
               onClick={exportData}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-black font-semibold transition-colors"
               title="Export data"
             >
               <FiDownload />
+              Export Data
             </button>
           </div>
         </div>
@@ -285,103 +384,166 @@ export default function BusinessAnalytics() {
         </div>
       </div>
 
-      {/* Stats - Using backend calculated totals */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Total Sales */}
         <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-800 hover:border-green-400 transition-all">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-gray-400 text-sm">Total Sales</div>
-              <div className="text-3xl font-bold text-green-400">
-                ₹{totalStats.totalSales.toLocaleString()}
+              <div className="text-gray-400 text-sm flex items-center gap-2">
+                <FiDollarSign className="text-green-400" />
+                Total Sales
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Filtered orders total
+              <div className="text-2xl font-bold text-green-400 mt-2">
+                ₹{(analyticsData.total_sales || 0).toLocaleString('en-IN')}
               </div>
             </div>
             <div className="text-green-400 bg-green-900 bg-opacity-30 p-3 rounded-full">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-8 w-8"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <FiTrendingUp size={24} />
             </div>
           </div>
         </div>
 
+        {/* Total Orders */}
         <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-800 hover:border-yellow-400 transition-all">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-gray-400 text-sm">Total Orders</div>
-              <div className="text-3xl font-bold text-yellow-400">
-                {totalStats.totalOrders}
+              <div className="text-gray-400 text-sm flex items-center gap-2">
+                <FiShoppingCart className="text-yellow-400" />
+                Total Orders
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Filtered orders count
+              <div className="text-2xl font-bold text-yellow-400 mt-2">
+                {analyticsData.total_orders || 0}
               </div>
             </div>
             <div className="text-yellow-400 bg-yellow-900 bg-opacity-30 p-3 rounded-full">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-8 w-8"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
+              <FiPackage size={24} />
             </div>
           </div>
         </div>
 
+        {/* Average Order Value */}
         <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-800 hover:border-blue-400 transition-all">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-gray-400 text-sm">Avg Order Value</div>
-              <div className="text-3xl font-bold text-blue-400">
-                ₹{totalStats.avgOrder}
+              <div className="text-gray-400 text-sm flex items-center gap-2">
+                <FiBarChart2 className="text-blue-400" />
+                Avg Order Value
               </div>
-              <div className="text-xs text-gray-500 mt-1">
-                Based on filtered orders
+              <div className="text-2xl font-bold text-blue-400 mt-2">
+                ₹{(analyticsData.average_order_value || 0).toLocaleString('en-IN')}
               </div>
             </div>
             <div className="text-blue-400 bg-blue-900 bg-opacity-30 p-3 rounded-full">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-8 w-8"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                />
-              </svg>
+              <FiTrendingUp size={24} />
+            </div>
+          </div>
+        </div>
+
+        {/* Unique Customers */}
+        <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-800 hover:border-purple-400 transition-all">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-gray-400 text-sm flex items-center gap-2">
+                <FiUsers className="text-purple-400" />
+                Unique Customers
+              </div>
+              <div className="text-2xl font-bold text-purple-400 mt-2">
+                {analyticsData.unique_customers || 0}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {analyticsData.repeat_customers || 0} repeat customers
+              </div>
+            </div>
+            <div className="text-purple-400 bg-purple-900 bg-opacity-30 p-3 rounded-full">
+              <FiUserCheck size={24} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Chart */}
+      {/* Order Status Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-green-900/20 border border-green-800 rounded-xl p-4 text-center">
+          <div className="text-green-400 text-sm">Completed</div>
+          <div className="text-2xl font-bold text-green-400">{analyticsData.completed_orders || 0}</div>
+        </div>
+        <div className="bg-yellow-900/20 border border-yellow-800 rounded-xl p-4 text-center">
+          <div className="text-yellow-400 text-sm">Pending</div>
+          <div className="text-2xl font-bold text-yellow-400">{analyticsData.pending_orders || 0}</div>
+        </div>
+        <div className="bg-red-900/20 border border-red-800 rounded-xl p-4 text-center">
+          <div className="text-red-400 text-sm">Cancelled</div>
+          <div className="text-2xl font-bold text-red-400">{analyticsData.cancelled_orders || 0}</div>
+        </div>
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 text-center">
+          <div className="text-gray-400 text-sm">Returned</div>
+          <div className="text-2xl font-bold text-gray-400">{analyticsData.returned_orders || 0}</div>
+        </div>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Sales Charts */}
+        <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-800">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-200">Sales Performance</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setActiveChart("daily")}
+                className={`px-3 py-1 rounded-lg text-sm ${
+                  activeChart === "daily" 
+                    ? "bg-yellow-500 text-black" 
+                    : "bg-gray-700 text-gray-300"
+                }`}
+              >
+                Daily
+              </button>
+              <button
+                onClick={() => setActiveChart("monthly")}
+                className={`px-3 py-1 rounded-lg text-sm ${
+                  activeChart === "monthly" 
+                    ? "bg-yellow-500 text-black" 
+                    : "bg-gray-700 text-gray-300"
+                }`}
+              >
+                Monthly
+              </button>
+            </div>
+          </div>
+          <div className="h-80">
+            {activeChart === "daily" ? (
+              <Bar data={dailySalesChart} options={chartOptions} />
+            ) : (
+              <Line data={monthlySalesChart} options={chartOptions} />
+            )}
+          </div>
+        </div>
+
+        {/* Right Column - Two smaller charts */}
+        <div className="space-y-6">
+          {/* Best Selling Products */}
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-800">
+            <h3 className="text-xl font-bold text-gray-200 mb-4">Best Selling Products</h3>
+            <div className="h-64">
+              <Bar data={bestSellingProductsChart} options={chartOptions} />
+            </div>
+          </div>
+
+          {/* Order Status Distribution */}
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-800">
+            <h3 className="text-xl font-bold text-gray-200 mb-4">Order Status Distribution</h3>
+            <div className="h-64">
+              <Doughnut data={orderStatusChart} options={doughnutOptions} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Order Details Table */}
       <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-800">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-gray-200">Sales Performance</h3>
+          <h3 className="text-xl font-bold text-gray-200">Order Details</h3>
           <button
             onClick={() => setShowDetails(!showDetails)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 transition-colors"
@@ -400,109 +562,58 @@ export default function BusinessAnalytics() {
           </button>
         </div>
 
-        <div className="h-80">
-          <Bar data={chartJSData} options={options} />
-        </div>
-
-        {/* Order Details Table */}
         {showDetails && (
-          <div className="mt-8 overflow-x-auto">
+          <div className="overflow-x-auto">
             <div className="flex justify-between items-center mb-4">
-              <h4 className="text-lg font-semibold text-gray-300">
-                Order Details
-              </h4>
               <div className="text-sm text-gray-400">
-                Showing {tableOrders.length} orders (Page{" "}
-                {pagination.currentPage} of {totalPages})
+                Showing {orders.length} orders (Page {pagination.currentPage} of {totalPages})
               </div>
             </div>
             <div className="rounded-lg border border-gray-700 overflow-hidden">
               <table className="min-w-full divide-y divide-gray-700">
                 <thead className="bg-gray-800">
                   <tr>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
-                    >
-                      #
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
-                    >
-                      Order ID
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
-                    >
-                      Date
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
-                    >
-                      Customer
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
-                    >
-                      Amount
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"
-                    >
-                      Status
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">#</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Order ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Customer</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
                 <tbody className="bg-gray-900 divide-y divide-gray-700">
-                  {tableOrders.length > 0 ? (
-                    tableOrders.map((order, index) => (
-                      <tr
-                        key={index}
-                        className={
-                          index % 2 === 0
-                            ? "bg-gray-900 hover:bg-gray-850"
-                            : "bg-gray-800 hover:bg-gray-750"
-                        }
-                      >
+                  {orders.length > 0 ? (
+                    orders.map((order, index) => (
+                      <tr key={order.id} className="hover:bg-gray-800 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                          {(pagination.currentPage - 1) * 20 + index + 1}
+                          {(pagination.currentPage - 1) * pageSize + index + 1}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-medium">
-                          {order.id}
+                          #{order.id}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                          {order.date}
+                          {format(new Date(order.created_at), "MMM dd, yyyy")}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           {order.userName}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-green-400 font-medium">
-                          ₹{order.total.toLocaleString()}
+                          ₹{parseFloat(order.total).toLocaleString('en-IN')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              statusClasses[order.status.toLowerCase()] ||
-                              "bg-gray-700 text-gray-300"
+                            className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              statusClasses[order.status.toLowerCase()] || "bg-gray-700 text-gray-300"
                             }`}
                           >
-                            {order.status.charAt(0).toUpperCase() +
-                              order.status.slice(1)}
+                            {order.status}
                           </span>
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td
-                        colSpan="6"
-                        className="px-6 py-4 text-center text-sm text-gray-400"
-                      >
+                      <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-400">
                         No orders found for the selected filters
                       </td>
                     </tr>
@@ -519,14 +630,8 @@ export default function BusinessAnalytics() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* Previous Button */}
                   <button
-                    onClick={() =>
-                      handlePageChange(
-                        pagination.previous,
-                        pagination.currentPage - 1
-                      )
-                    }
+                    onClick={() => handlePageChange(pagination.previous, pagination.currentPage - 1)}
                     disabled={!pagination.previous}
                     className={`p-2 rounded-lg border ${
                       pagination.previous
@@ -537,19 +642,12 @@ export default function BusinessAnalytics() {
                     <FiChevronLeft size={18} />
                   </button>
 
-                  {/* Page Info */}
                   <span className="px-3 py-1 text-sm text-gray-300">
                     {pagination.currentPage} / {totalPages}
                   </span>
 
-                  {/* Next Button */}
                   <button
-                    onClick={() =>
-                      handlePageChange(
-                        pagination.next,
-                        pagination.currentPage + 1
-                      )
-                    }
+                    onClick={() => handlePageChange(pagination.next, pagination.currentPage + 1)}
                     disabled={!pagination.next}
                     className={`p-2 rounded-lg border ${
                       pagination.next

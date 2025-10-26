@@ -13,9 +13,9 @@ export default function Actioncard({ stats }) {
         icon={<UsersIcon />}
         iconBg="bg-blue-500/20"
         label="Total Users"
-        count={stats.users}
-        trend={`+${stats.usertrend} this month`} 
-        extra={`${stats.pendingUsers} pending approvals`}
+        count={stats.users.total}
+        trend={`+${stats.users.new_this_month} this month`} 
+        extra={`${stats.users.pending_approvals} pending approvals`}
         btnColor="bg-blue-600 hover:bg-blue-500"
         onClick={() => navigate("/admin/UserMagagement")}
       />
@@ -23,9 +23,9 @@ export default function Actioncard({ stats }) {
         icon={<ProductsIcon />}
         iconBg="bg-purple-500/20"
         label="Total Products"
-        count={stats.products}
-        trend={`+${stats.productstrend} new listings`}
-        extra={`${stats.lowStock} out-of-stock items`}
+        count={stats.products.total}
+        trend={`+${stats.products.new_listings} new listings`}
+        extra={`${stats.products.out_of_stock} out-of-stock items`}
         btnColor="bg-purple-600 hover:bg-purple-500"
         onClick={() => navigate("/admin/ProductManagement")}
       />
@@ -33,9 +33,9 @@ export default function Actioncard({ stats }) {
         icon={<OrdersIcon />}
         iconBg="bg-green-500/20"
         label="Total Orders"
-        count={stats.orders}
-        trend={`${stats.pendingShipments} pending shipments`}
-        extra={`${stats.underReview} under review`}
+        count={stats.orders.total}
+        trend={`${stats.orders.pending_shipments} pending shipments`}
+        extra={`${stats.orders.Processing} under review`}
         btnColor="bg-green-600 hover:bg-green-500"
         onClick={() => navigate("/admin/OrderManagement")}
       />
@@ -43,9 +43,9 @@ export default function Actioncard({ stats }) {
         icon={<CartIcon />}
         iconBg="bg-yellow-500/20"
         label="Items in Carts"
-        count={stats.carts}
-        trend={`+${stats.itemsAddedToday} Items added to day`}
-        extra={`${abandoned} abandoned carts`}
+        count={stats.carts.total_items}
+        trend={`+${stats.carts.items_added_today} Items added to day`}
+        extra={`${stats.carts.abandoned_carts} abandoned carts`}
         btnColor="bg-yellow-600 hover:bg-yellow-500"
         onClick={() => navigate("/admin/CartManagement")}
       />

@@ -1,83 +1,97 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { FiTrash2, FiSend, FiImage, FiX } from "react-icons/fi";
-import { NotificationApi } from "../../Data/Api_EndPoint";
+import api from "../../API/axios";
 
 export default function PushNotification() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [showImageInput, setShowImageInput] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch existing notifications
+  const ws = useRef(null);
+
+  // Fetch all notifications from the DB on component mount
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        setLoading(true);
-        const response = await axios.get(NotificationApi);
-        setNotifications(response.data);
+        const res = await api.get("/admin/user-notifications/");
+        // Sort latest first
+        const sorted = res.data.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
+        setNotifications(sorted);
       } catch (err) {
-        console.error(err);
-        toast.error("Failed to load notifications");
+        console.error("Failed to fetch notifications:", err);
+        toast.error("Failed to fetch notifications");
       } finally {
         setLoading(false);
       }
     };
-
     fetchNotifications();
   }, []);
 
-  const handlePush = async () => {
+  // Initialize WebSocket for real-time notifications
+  useEffect(() => {
+    ws.current = new WebSocket("ws://localhost:8000/ws/notifications/");
+
+    ws.current.onopen = () => {
+      console.log("Connected to notifications WebSocket");
+    };
+
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      setNotifications((prev) => [data, ...prev]); // Add new notification on top
+    };
+
+    ws.current.onclose = () => {
+      console.log("WebSocket disconnected");
+    };
+
+    return () => {
+      ws.current.close();
+    };
+  }, []);
+
+  const handlePush = () => {
     if (!message.trim()) {
       toast.error("Message cannot be empty");
       return;
     }
 
-    try {
-      setSending(true);
-      const newNotification = {
-        title: title.trim(),
-        message: message.trim(),
-        imageUrl: imageUrl.trim(),
-        createdAt: new Date().toISOString(),
-      };
+    setSending(true);
 
-      const response = await axios.post(
-        NotificationApi,
-        newNotification
-      );
-      const savedNotification = response.data;
+    const newNotification = {
+      title: title.trim(),
+      message: message.trim(),
+      imageUrl: imageUrl.trim(),
+      createdAt: new Date().toISOString(),
+    };
 
-      setNotifications((prev) => [savedNotification, ...prev]);
+    // Send notification via WebSocket
+    if (ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify(newNotification));
       toast.success("Notification sent!");
       setTitle("");
       setMessage("");
       setImageUrl("");
       setShowImageInput(false);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to send notification");
-    } finally {
-      setSending(false);
+    } else {
+      toast.error("WebSocket not connected");
     }
+
+    setSending(false);
   };
 
   const handleDelete = async (id) => {
-    if (!id) {
-      toast.error("Invalid notification id");
-      return;
-    }
-
     try {
-      await axios.delete(`${NotificationApi}/${id}`);
-      setNotifications((prev) =>
-        prev.filter((notification) => notification.id !== id)
-      );
-      toast.success("Notification deleted");
+      await api.delete(`/admin/user-notifications/${id}/`);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      toast.success("Notification deleted!");
     } catch (err) {
       console.error(err);
       toast.error("Failed to delete notification");
@@ -97,7 +111,7 @@ export default function PushNotification() {
             Push Notifications Dashboard
           </h2>
           <p className="text-sm text-gray-400 mt-1">
-            Manage and review all push notifications sent to users.
+            Manage and send real-time notifications to users.
           </p>
         </div>
 
@@ -187,7 +201,7 @@ export default function PushNotification() {
           </h3>
 
           {loading ? (
-            <div className="text-center py-12">Loading notifications...</div>
+            <div className="text-center py-12 text-gray-400">Loading notifications...</div>
           ) : notifications.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               No notifications yet
@@ -209,9 +223,7 @@ export default function PushNotification() {
                       <p className="text-white">{notification.message}</p>
                       {notification.imageUrl && (
                         <div className="mt-2">
-                          <span className="text-xs text-gray-400">
-                            Image URL:{" "}
-                          </span>
+                          <span className="text-xs text-gray-400">Image URL: </span>
                           <span className="text-xs text-blue-400 break-all">
                             {notification.imageUrl}
                           </span>
@@ -222,9 +234,9 @@ export default function PushNotification() {
                       </p>
                     </div>
                     <button
-                      onClick={() => handleDelete(notification.id)}
                       className="text-red-400 hover:text-red-300 p-2 ml-2"
                       title="Delete notification"
+                      onClick={() => handleDelete(notification.id)}
                     >
                       <FiTrash2 />
                     </button>
