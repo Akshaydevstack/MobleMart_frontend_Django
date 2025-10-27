@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
 import { toast } from "react-hot-toast";
 import { FiTrash2, FiSend, FiImage, FiX } from "react-icons/fi";
 import api from "../../API/axios";
@@ -8,6 +7,7 @@ export default function PushNotification() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [userId, setUserId] = useState(""); // ✅ For specific user
   const [notifications, setNotifications] = useState([]);
   const [sending, setSending] = useState(false);
   const [showImageInput, setShowImageInput] = useState(false);
@@ -20,7 +20,6 @@ export default function PushNotification() {
     const fetchNotifications = async () => {
       try {
         const res = await api.get("/admin/user-notifications/");
-        // Sort latest first
         const sorted = res.data.sort(
           (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
@@ -37,15 +36,18 @@ export default function PushNotification() {
 
   // Initialize WebSocket for real-time notifications
   useEffect(() => {
-    ws.current = new WebSocket("ws://localhost:8000/ws/notifications/");
+    const token = localStorage.getItem("access_token");
+    if (!token) return; // only connect if logged in
+
+    ws.current = new WebSocket(`ws://localhost:8000/ws/notifications/?token=${token}`);
 
     ws.current.onopen = () => {
-      console.log("Connected to notifications WebSocket");
+      console.log("✅ Connected to notifications WebSocket");
     };
 
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      setNotifications((prev) => [data, ...prev]); // Add new notification on top
+      setNotifications((prev) => [data, ...prev]);
     };
 
     ws.current.onclose = () => {
@@ -53,7 +55,7 @@ export default function PushNotification() {
     };
 
     return () => {
-      ws.current.close();
+      ws.current?.close();
     };
   }, []);
 
@@ -69,6 +71,7 @@ export default function PushNotification() {
       title: title.trim(),
       message: message.trim(),
       imageUrl: imageUrl.trim(),
+      userId: userId ? parseInt(userId) : undefined, // ✅ send to specific user if provided
       createdAt: new Date().toISOString(),
     };
 
@@ -79,6 +82,7 @@ export default function PushNotification() {
       setTitle("");
       setMessage("");
       setImageUrl("");
+      setUserId("");
       setShowImageInput(false);
     } else {
       toast.error("WebSocket not connected");
@@ -144,6 +148,19 @@ export default function PushNotification() {
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Type your notification message here..."
                 required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                User ID (Optional, for specific user)
+              </label>
+              <input
+                type="number"
+                className="w-full p-3 rounded bg-gray-700 text-white border border-gray-600 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                placeholder="Leave empty to broadcast"
               />
             </div>
 
@@ -232,6 +249,11 @@ export default function PushNotification() {
                       <p className="text-xs text-gray-400 mt-2">
                         {formatDate(notification.createdAt)}
                       </p>
+                      {notification.userId && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          User ID: {notification.userId}
+                        </p>
+                      )}
                     </div>
                     <button
                       className="text-red-400 hover:text-red-300 p-2 ml-2"

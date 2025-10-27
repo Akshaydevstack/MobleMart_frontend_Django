@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import api from "../../API/axios"; 
+import { toast } from "react-hot-toast";
+import api from "../../API/axios";
+
 export default function UpcomingProducts() {
   const [upcomingProducts, setUpcomingProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,15 +14,18 @@ export default function UpcomingProducts() {
   });
 
   const formatPrice = (price) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
-      .format(price);
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(price);
 
   // Fetch upcoming products
   const fetchUpcomingProducts = async (page = 1) => {
     try {
       setLoading(true);
       const response = await api.get(`product/upcoming-productView/?page=${page}`);
-      
+
       setUpcomingProducts(response.data.results);
       setPagination({
         current_page: page,
@@ -41,8 +46,20 @@ export default function UpcomingProducts() {
     fetchUpcomingProducts(1);
   }, []);
 
-  const handleNotify = (productName) => {
-    alert(`We'll notify you when ${productName} is available!`);
+  // ✅ Handle "Notify Me" click
+  const handleNotify = async (productId, productName) => {
+    try {
+      // Send request to backend to subscribe for this product
+      const response = await api.post(`notifications/subscribe/${productId}/`);
+      toast.success(response.data.message || `You'll be notified when ${productName} is available.`);
+    } catch (error) {
+      console.error("Error subscribing for notification:", error);
+      if (error.response?.status === 401) {
+        toast.error("Please login to subscribe for notifications.");
+      } else {
+        toast.error("Something went wrong. Try again later.");
+      }
+    }
   };
 
   const loadNextPage = () => {
@@ -57,6 +74,7 @@ export default function UpcomingProducts() {
     }
   };
 
+  // 🌀 Loading state
   if (loading) {
     return (
       <div className="bg-gray-900 py-16 border-t border-gray-800">
@@ -77,6 +95,7 @@ export default function UpcomingProducts() {
     );
   }
 
+  // ⚠️ Error state
   if (error) {
     return (
       <div className="bg-gray-900 py-16 border-t border-gray-800">
@@ -103,6 +122,7 @@ export default function UpcomingProducts() {
     );
   }
 
+  // 💤 Empty state
   if (upcomingProducts.length === 0) {
     return (
       <div className="bg-gray-900 py-16 border-t border-gray-800">
@@ -124,6 +144,7 @@ export default function UpcomingProducts() {
     );
   }
 
+  // ✅ Main content
   return (
     <div className="bg-gray-900 py-16 border-t border-gray-800">
       <div className="max-w-7xl mx-auto px-6">
@@ -135,7 +156,7 @@ export default function UpcomingProducts() {
         >
           Upcoming Launches
         </motion.h2>
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {upcomingProducts.map((item, index) => {
             const numericPrice = parseFloat(item.price);
@@ -146,7 +167,6 @@ export default function UpcomingProducts() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.4, delay: index * 0.1 }}
-                onClick={() => handleNotify(item.name)}
                 className="bg-black border border-gray-800 rounded-2xl overflow-hidden shadow-lg hover:shadow-yellow-500/30 transition duration-300 cursor-pointer group"
               >
                 <div className="h-56 overflow-hidden relative">
@@ -155,7 +175,8 @@ export default function UpcomingProducts() {
                     alt={item.name}
                     className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-110"
                     onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/300x300?text=Image+Not+Found';
+                      e.target.src =
+                        "https://via.placeholder.com/300x300?text=Image+Not+Found";
                     }}
                   />
                   <div className="absolute top-2 left-2 px-3 py-1 bg-yellow-400/20 text-yellow-400 text-xs font-bold rounded-full">
@@ -165,14 +186,16 @@ export default function UpcomingProducts() {
                     {item.brand.name}
                   </div>
                 </div>
+
                 <div className="p-5 flex flex-col space-y-2 text-center">
                   <h3 className="text-lg font-semibold text-white">{item.name}</h3>
                   <p className="text-yellow-400 font-bold text-md">{formatPrice(numericPrice)}</p>
                   <p className="text-gray-400 text-sm line-clamp-2">{item.description}</p>
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleNotify(item.name);
+                      handleNotify(item.id, item.name);
                     }}
                     className="mt-3 bg-yellow-400 text-black px-5 py-2 rounded-full hover:bg-yellow-300 transition font-semibold shadow"
                   >
@@ -194,11 +217,9 @@ export default function UpcomingProducts() {
             >
               Previous
             </button>
-            
-            <span className="text-gray-400 text-sm">
-              Page {pagination.current_page}
-            </span>
-            
+
+            <span className="text-gray-400 text-sm">Page {pagination.current_page}</span>
+
             <button
               onClick={loadNextPage}
               disabled={!pagination.next}
