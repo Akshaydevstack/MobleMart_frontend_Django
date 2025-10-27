@@ -15,7 +15,7 @@ export default function MainLayout() {
     if (!token) return; // only connect if user is logged in
 
     // ✅ Connect WebSocket with token query param
-    ws.current = new WebSocket(`ws://127.0.0.1:8000/ws/notifications/?token=${token}`);
+    ws.current = new WebSocket(`ws://13.203.202.165:8000/ws/notifications/?token=${token}`);
 
     ws.current.onopen = () => console.log("✅ WebSocket connected");
 

@@ -52,7 +52,7 @@ export default function UserNotifications() {
     if (!token) return;
 
     const socket = new WebSocket(
-      `ws://127.0.0.1:8000/ws/notifications/?token=${token}`
+      `ws://13.203.202.165:8000/ws/notifications/?token=${token}`
     );
 
     socket.onopen = () => console.log("✅ WebSocket connected!");

@@ -39,7 +39,7 @@ export default function PushNotification() {
     const token = localStorage.getItem("access_token");
     if (!token) return; // only connect if logged in
 
-    ws.current = new WebSocket(`ws://localhost:8000/ws/notifications/?token=${token}`);
+    ws.current = new WebSocket(`ws://13.203.202.165:8000/ws/notifications/?token=${token}`);
 
     ws.current.onopen = () => {
       console.log("✅ Connected to notifications WebSocket");
