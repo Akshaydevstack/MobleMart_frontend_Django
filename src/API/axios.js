@@ -51,7 +51,7 @@ api.interceptors.response.use(
       try {
         // Call refresh endpoint (which reads HttpOnly cookie)
         const res = await axios.post(
-          "http://localhost:8000/api/users/refresh/",
+          "http://13.203.202.165:8000/api/users/refresh/",
           {},
           { withCredentials: true }
         );
