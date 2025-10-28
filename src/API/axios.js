@@ -19,20 +19,6 @@ api.interceptors.request.use(
 );
 
 
-
-// ✅ Request interceptor — attach access token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      config.headers["Authorization"] = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-
 // ✅ Response interceptor — refresh logic
 api.interceptors.response.use(
   (response) => response,

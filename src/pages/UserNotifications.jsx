@@ -69,8 +69,6 @@ export default function UserNotifications() {
         console.error("Invalid WebSocket message:", e);
       }
     };
-
-    return () => socket.close();
   }, []);
 
   const formatDate = (dateStr) => {
