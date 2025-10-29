@@ -14,7 +14,7 @@ export default function DailySection() {
   useEffect(() => {
     const fetchDailyData = async () => {
       try {
-        const formattedDate = selectedDate.toISOString().split("T")[0]; // "YYYY-MM-DD"
+        const formattedDate = selectedDate.toLocaleDateString("en-CA");
         const response = await api.get(
           `admin/daily-sales/?date=${formattedDate}`
         );
