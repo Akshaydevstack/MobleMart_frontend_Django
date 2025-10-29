@@ -11,8 +11,19 @@ import {
   FiCheck,
   FiImage,
   FiFilter,
+  FiUpload,
 } from "react-icons/fi";
+import { toast } from "react-toastify";
 import api from "../../API/axios";
+
+// Cloudinary Configuration
+export const CLOUDINARY_CLOUD_NAME = "dxsimc9dz";
+export const CLOUDINARY_UPLOAD_PRESET = "ml_default";
+export const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+// Upload Constants
+const MAX_FILE_SIZE_MB = 2; // maximum size per image
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
 
 export default function ProductManagement() {
   const [products, setProducts] = useState([]);
@@ -22,13 +33,13 @@ export default function ProductManagement() {
   const [formData, setFormData] = useState(getEmptyProduct());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [brandFilter, setBrandFilter] = useState("all");
   const [stockFilter, setStockFilter] = useState("all");
   const [activeFilter, setActiveFilter] = useState("all");
   const [showNewBrandInput, setShowNewBrandInput] = useState(false);
   const [newBrandName, setNewBrandName] = useState("");
   const [newBrandDescription, setNewBrandDescription] = useState("");
-  const [currentImageInput, setCurrentImageInput] = useState("");
   const [pagination, setPagination] = useState({
     current_page: 1,
     total_pages: 1,
@@ -43,6 +54,86 @@ export default function ProductManagement() {
     inactive: 0,
     upcoming_products: 0,
   });
+
+  // Cloudinary Image Upload Function
+  const handleImageUpload = async (files) => {
+    const validFiles = [];
+
+    // Validate files
+    for (const file of files) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast.error(`❌ ${file.name} is not a valid image type.`);
+        continue;
+      }
+
+      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        toast.error(`⚠️ ${file.name} exceeds ${MAX_FILE_SIZE_MB}MB limit.`);
+        continue;
+      }
+
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) return;
+
+    setUploadingImages(true);
+
+    const uploadedUrls = [];
+    for (const file of validFiles) {
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
+      uploadFormData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+      try {
+        const res = await axios.post(CLOUDINARY_URL, uploadFormData);
+        uploadedUrls.push(res.data.secure_url);
+        toast.success(`✅ ${file.name} uploaded successfully`);
+      } catch (err) {
+        console.error("Cloudinary upload failed:", err);
+        toast.error(`❌ Failed to upload ${file.name}`);
+      }
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      images: [...prev.images, ...uploadedUrls],
+    }));
+
+    setUploadingImages(false);
+  };
+
+  // Handle file input change
+  const handleFileInputChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      handleImageUpload(files);
+    }
+    // Reset input
+    e.target.value = '';
+  };
+
+  // Handle drag and drop - FIXED
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleImageUpload(files);
+    }
+  };
+
+  // Handle drag over - FIXED
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  // Handle removing individual image
+  const handleRemoveImage = (index) => {
+    const updatedImages = formData.images.filter((_, i) => i !== index);
+    setFormData({ ...formData, images: updatedImages });
+  };
 
   // Debounced search function
   const debouncedLoadProducts = useCallback(
@@ -140,7 +231,7 @@ export default function ProductManagement() {
       count: product.count,
       is_active: product.is_active,
       upcoming: product.upcoming,
-      images: product.image_urls,
+      images: product.image_urls || product.images || [],
     });
     setShowNewBrandInput(false);
     setNewBrandName("");
@@ -172,20 +263,26 @@ export default function ProductManagement() {
         brandData = parseInt(formData.brand);
       }
 
-      // Prepare data for API
+      // Prepare data for API - matching your required structure
       const apiData = {
-        ...formData,
-        brand: brandData,
+        name: formData.name,
+        description: formData.description,
         price: parseFloat(formData.price).toFixed(2),
         count: parseInt(formData.count),
-        images: formData.images,
         upcoming: formData.upcoming,
+        is_active:formData.is_active,
+        brand: brandData,
+        images: formData.images, // Array of Cloudinary URLs
       };
+
+      console.log("Saving product:", apiData); // Debug log
 
       if (editingProduct) {
         await api.patch(`admin/manage-products/${editingProduct}/`, apiData);
+        toast.success("Product updated successfully!");
       } else {
         await api.post(`admin/manage-products/`, apiData);
+        toast.success("Product created successfully!");
       }
 
       await debouncedLoadProducts(
@@ -203,7 +300,9 @@ export default function ProductManagement() {
     } catch (err) {
       console.error("Error saving product", err);
       if (err.response?.data) {
-        alert(`Error: ${JSON.stringify(err.response.data)}`);
+        toast.error(`Error: ${JSON.stringify(err.response.data)}`);
+      } else {
+        toast.error("Error saving product");
       }
     } finally {
       setLoading(false);
@@ -222,56 +321,16 @@ export default function ProductManagement() {
           stockFilter,
           activeFilter
         );
+        toast.success("Product deleted successfully!");
       } catch (err) {
         console.error("Error deleting product", err);
         if (err.response?.data) {
-          alert(`Error: ${JSON.stringify(err.response.data)}`);
+          toast.error(`Error: ${JSON.stringify(err.response.data)}`);
         }
       } finally {
         setLoading(false);
       }
     }
-  };
-
-  // Handle image input with comma separation
-  const handleImageInputKeyDown = (e) => {
-    if (e.key === ',' || e.key === 'Enter') {
-      e.preventDefault();
-      const url = currentImageInput.trim();
-      
-      if (url && !formData.images.includes(url)) {
-        setFormData({
-          ...formData,
-          images: [...formData.images, url]
-        });
-      }
-      
-      setCurrentImageInput('');
-    }
-  };
-
-  // Handle paste event for multiple URLs
-  const handleImageInputPaste = (e) => {
-    const pastedText = e.clipboardData.getData('text');
-    const urls = pastedText.split(',')
-      .map(url => url.trim())
-      .filter(url => url !== '');
-    
-    if (urls.length > 1) {
-      e.preventDefault();
-      const uniqueUrls = urls.filter(url => !formData.images.includes(url));
-      setFormData({
-        ...formData,
-        images: [...formData.images, ...uniqueUrls]
-      });
-      setCurrentImageInput('');
-    }
-  };
-
-  // Handle removing individual image
-  const handleRemoveImage = (index) => {
-    const updatedImages = formData.images.filter((_, i) => i !== index);
-    setFormData({ ...formData, images: updatedImages });
   };
 
   // Handle filter changes with debouncing
@@ -310,7 +369,7 @@ export default function ProductManagement() {
   return (
     <div className="min-h-screen bg-gray-950 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
+        {/* Header - unchanged */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -381,7 +440,7 @@ export default function ProductManagement() {
           </div>
         </motion.div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards - unchanged */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
           {/* Total Products */}
           <motion.div
@@ -480,7 +539,7 @@ export default function ProductManagement() {
           </motion.div>
         </div>
 
-        {/* Active Filters */}
+        {/* Active Filters - unchanged */}
         {(search ||
           brandFilter !== "all" ||
           stockFilter !== "all" ||
@@ -527,7 +586,7 @@ export default function ProductManagement() {
           </motion.div>
         )}
 
-        {/* Product Table */}
+        {/* Product Table - unchanged */}
         {loading && !isFormOpen ? (
           <div className="flex justify-center items-center h-64 bg-gray-900 rounded-3xl shadow-lg">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-yellow-400"></div>
@@ -581,7 +640,7 @@ export default function ProductManagement() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          {product.image_urls[0] ? (
+                          {product.image_urls && product.image_urls[0] ? (
                             <img
                               className="h-10 w-10 rounded-md object-cover mr-3"
                               src={product.image_urls[0]}
@@ -657,7 +716,7 @@ export default function ProductManagement() {
               </table>
             </div>
 
-            {/* Pagination */}
+            {/* Pagination - unchanged */}
             {pagination.total_pages > 1 && (
               <div className="bg-gray-800 px-6 py-4 border-t border-gray-700">
                 <div className="flex items-center justify-between">
@@ -686,7 +745,7 @@ export default function ProductManagement() {
           </div>
         )}
 
-        {/* Edit/Add Form Modal */}
+        {/* Edit/Add Form Modal - FIXED */}
         {isFormOpen && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
             <motion.div
@@ -887,14 +946,55 @@ export default function ProductManagement() {
                     </div>
                   </div>
 
-                  {/* Right Column - Image URL Input */}
+                  {/* Right Column - Cloudinary Image Upload - FIXED */}
                   <div className="w-full md:w-1/3 space-y-4">
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-400">
-                        Product Image URLs ({formData.images.length} images)
+                        Product Images ({formData.images.length} images)
                       </label>
                       
-                      {/* Multiple Image Preview */}
+                      {/* Drag & Drop Upload Area - FIXED */}
+                      <div
+                        onDrop={handleDrop}
+                        onDragOver={handleDragOver}
+                        className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center hover:border-yellow-400 transition-colors cursor-pointer"
+                      >
+                        <FiUpload className="mx-auto text-gray-400 mb-3" size={32} />
+                        <p className="text-lg text-gray-300 mb-2">
+                          {uploadingImages ? 'Uploading...' : 'Drag & drop images here'}
+                        </p>
+                        <p className="text-sm text-gray-400 mb-3">
+                          or click to browse files
+                        </p>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={handleFileInputChange}
+                          className="hidden"
+                          id="image-upload"
+                          disabled={uploadingImages}
+                        />
+                        <label
+                          htmlFor="image-upload"
+                          className="inline-block px-4 py-2 bg-yellow-400 text-gray-900 rounded-lg cursor-pointer hover:bg-yellow-500 transition-colors"
+                        >
+                          Select Images
+                        </label>
+                        <p className="text-xs text-gray-500 mt-3">
+                          Supports JPG, PNG, WebP • Max {MAX_FILE_SIZE_MB}MB per image
+                        </p>
+                      </div>
+
+                      {/* Upload Progress */}
+                      {uploadingImages && (
+                        <div className="text-center py-4">
+                          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-yellow-400 mx-auto mb-2"></div>
+                          <p className="text-sm text-gray-400">Uploading images to Cloudinary...</p>
+                        </div>
+                      )}
+
+                      {/* Image Preview Grid */}
                       <div className="h-48 bg-gray-800 border border-gray-700 rounded-lg overflow-y-auto p-2">
                         {formData.images.length > 0 ? (
                           <div className="grid grid-cols-2 gap-2">
@@ -922,38 +1022,15 @@ export default function ProductManagement() {
                           <div className="h-full flex items-center justify-center text-gray-500">
                             <div className="text-center">
                               <FiImage size={48} className="opacity-50 mx-auto mb-2" />
-                              <p className="text-sm">No images added</p>
+                              <p className="text-sm">No images uploaded</p>
                             </div>
                           </div>
                         )}
                       </div>
 
-                      {/* Image URL Input */}
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          placeholder="Type image URL and press comma to add (or paste multiple URLs separated by commas)"
-                          value={currentImageInput}
-                          onChange={(e) => setCurrentImageInput(e.target.value)}
-                          onKeyDown={handleImageInputKeyDown}
-                          onPaste={handleImageInputPaste}
-                          className="w-full px-3 py-2 rounded-lg border border-gray-700 bg-gray-800 text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-sm"
-                        />
-                        
-                        {/* Display current images as comma-separated string */}
-                        <div className="p-3 bg-gray-800 rounded-lg border border-gray-700">
-                          <label className="block text-xs font-medium text-gray-400 mb-2">
-                            Current Images (comma separated):
-                          </label>
-                          <div className="text-sm text-gray-300 break-words">
-                            {formData.images.length > 0 ? formData.images.join(", ") : "No images added yet"}
-                          </div>
-                        </div>
-                      </div>
-                      
                       {/* Image Count Info */}
                       <div className="text-xs text-gray-400">
-                        {formData.images.length} image(s) added. Type URL and press comma to add.
+                        {formData.images.length} image(s) uploaded. Drag & drop or click to add more.
                       </div>
                     </div>
                   </div>
@@ -970,6 +1047,7 @@ export default function ProductManagement() {
                     onClick={handleSave}
                     disabled={
                       loading ||
+                      uploadingImages ||
                       (!showNewBrandInput && !formData.brand) ||
                       (showNewBrandInput && !newBrandName.trim())
                     }
