@@ -17,6 +17,10 @@ import {
   FiUserCheck,
   FiStar,
   FiBarChart2,
+  FiTruck,
+  FiCheckCircle,
+  FiXCircle,
+  FiClock,
 } from "react-icons/fi";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 import {
@@ -140,12 +144,20 @@ export default function BusinessAnalytics() {
   const pageSize = 20;
   const totalPages = Math.ceil(pagination.count / pageSize);
 
-  // Status badge colors
+  // Status badge colors - Updated to match your new statuses
   const statusClasses = {
-    delivered: "bg-green-900 text-green-200",
     processing: "bg-blue-900 text-blue-200",
-    pending: "bg-yellow-900 text-yellow-200",
+    shipped: "bg-yellow-900 text-yellow-200",
+    delivered: "bg-green-900 text-green-200",
     cancelled: "bg-red-900 text-red-200",
+  };
+
+  // Status icons
+  const statusIcons = {
+    processing: <FiClock className="inline mr-1" size={14} />,
+    shipped: <FiTruck className="inline mr-1" size={14} />,
+    delivered: <FiCheckCircle className="inline mr-1" size={14} />,
+    cancelled: <FiXCircle className="inline mr-1" size={14} />,
   };
 
   // Chart data configurations
@@ -207,27 +219,28 @@ export default function BusinessAnalytics() {
     ],
   };
 
+  // Updated order status chart to match new statuses
   const orderStatusChart = {
-    labels: ["Completed", "Pending", "Cancelled", "Returned"],
+    labels: ["Processing", "Shipped", "Delivered", "Cancelled"],
     datasets: [
       {
         data: [
-          analyticsData.completed_orders || 0,
-          analyticsData.pending_orders || 0,
+          analyticsData.processing_orders || 0,
+          analyticsData.shipped_orders || 0,
+          analyticsData.delivered_orders || 0,
           analyticsData.cancelled_orders || 0,
-          analyticsData.returned_orders || 0,
         ],
         backgroundColor: [
-          "rgba(16, 185, 129, 0.8)",
-          "rgba(245, 158, 11, 0.8)",
-          "rgba(239, 68, 68, 0.8)",
-          "rgba(156, 163, 175, 0.8)",
+          "rgba(59, 130, 246, 0.8)",    // Blue for Processing
+          "rgba(245, 158, 11, 0.8)",    // Yellow for Shipped
+          "rgba(16, 185, 129, 0.8)",    // Green for Delivered
+          "rgba(239, 68, 68, 0.8)",     // Red for Cancelled
         ],
         borderColor: [
-          "rgba(16, 185, 129, 1)",
+          "rgba(59, 130, 246, 1)",
           "rgba(245, 158, 11, 1)",
+          "rgba(16, 185, 129, 1)",
           "rgba(239, 68, 68, 1)",
-          "rgba(156, 163, 175, 1)",
         ],
         borderWidth: 2,
       },
@@ -462,23 +475,35 @@ export default function BusinessAnalytics() {
         </div>
       </div>
 
-      {/* Order Status Summary */}
+      {/* Order Status Summary - Updated to match new statuses */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-green-900/20 border border-green-800 rounded-xl p-4 text-center">
-          <div className="text-green-400 text-sm">Completed</div>
-          <div className="text-2xl font-bold text-green-400">{analyticsData.completed_orders || 0}</div>
+        <div className="bg-blue-900/20 border border-blue-800 rounded-xl p-4 text-center">
+          <div className="text-blue-400 text-sm flex items-center justify-center gap-1">
+            <FiClock size={16} />
+            Processing
+          </div>
+          <div className="text-2xl font-bold text-blue-400">{analyticsData.processing_orders || 0}</div>
         </div>
         <div className="bg-yellow-900/20 border border-yellow-800 rounded-xl p-4 text-center">
-          <div className="text-yellow-400 text-sm">Pending</div>
-          <div className="text-2xl font-bold text-yellow-400">{analyticsData.pending_orders || 0}</div>
+          <div className="text-yellow-400 text-sm flex items-center justify-center gap-1">
+            <FiTruck size={16} />
+            Shipped
+          </div>
+          <div className="text-2xl font-bold text-yellow-400">{analyticsData.shipped_orders || 0}</div>
+        </div>
+        <div className="bg-green-900/20 border border-green-800 rounded-xl p-4 text-center">
+          <div className="text-green-400 text-sm flex items-center justify-center gap-1">
+            <FiCheckCircle size={16} />
+            Delivered
+          </div>
+          <div className="text-2xl font-bold text-green-400">{analyticsData.delivered_orders || 0}</div>
         </div>
         <div className="bg-red-900/20 border border-red-800 rounded-xl p-4 text-center">
-          <div className="text-red-400 text-sm">Cancelled</div>
+          <div className="text-red-400 text-sm flex items-center justify-center gap-1">
+            <FiXCircle size={16} />
+            Cancelled
+          </div>
           <div className="text-2xl font-bold text-red-400">{analyticsData.cancelled_orders || 0}</div>
-        </div>
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 text-center">
-          <div className="text-gray-400 text-sm">Returned</div>
-          <div className="text-2xl font-bold text-gray-400">{analyticsData.returned_orders || 0}</div>
         </div>
       </div>
 
@@ -595,7 +620,7 @@ export default function BusinessAnalytics() {
                           {format(new Date(order.created_at), "MMM dd, yyyy")}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                          {order.userName}
+                          {order.user_name || order.user?.username || "N/A"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-green-400 font-medium">
                           ₹{parseFloat(order.total).toLocaleString('en-IN')}
@@ -606,6 +631,7 @@ export default function BusinessAnalytics() {
                               statusClasses[order.status.toLowerCase()] || "bg-gray-700 text-gray-300"
                             }`}
                           >
+                            {statusIcons[order.status.toLowerCase()]}
                             {order.status}
                           </span>
                         </td>
