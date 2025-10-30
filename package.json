@@ -34,13 +34,14 @@
     "recharts": "^3.1.0",
     "router-dom": "^3.0.3",
     "tailwindcss": "^4.1.11",
+    "vite-plugin-compression": "^0.5.1",
     "yup": "^1.6.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
-    "@vitejs/plugin-react": "^4.5.2",
+    "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9.29.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",

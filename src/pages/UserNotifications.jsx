@@ -51,9 +51,9 @@ export default function UserNotifications() {
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
-    const socket = new WebSocket(
-      `wss://13.203.202.165/ws/notifications/?token=${token}`
-    );
+     const baseWS = import.meta.env.VITE_WS_BASE_URL;
+
+    const socket = new WebSocket(`${baseWS}?token=${token}`);
 
     socket.onopen = () => console.log("✅ WebSocket connected!");
     socket.onclose = () => console.warn("❌ WebSocket disconnected");

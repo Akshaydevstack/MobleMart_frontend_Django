@@ -1,7 +1,7 @@
 import axios from "axios";
 
  const api = axios.create({
-  baseURL: "https://13.203.202.165/api/",
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: { "Content-Type": "application/json" },
   withCredentials: true, // ✅ send cookies automatically (for HttpOnly)
 });
@@ -37,7 +37,7 @@ api.interceptors.response.use(
       try {
         // Call refresh endpoint (which reads HttpOnly cookie)
         const res = await axios.post(
-          "https://13.203.202.165/api/users/refresh/",
+          `${import.meta.env.VITE_API_BASE_URL}users/refresh/`,
           {},
           { withCredentials: true }
         );

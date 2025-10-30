@@ -10,22 +10,20 @@ export default function MainLayout() {
   const { setHasNewNotification } = useContext(AuthContext);
 
   useEffect(() => {
-    // ✅ Get JWT token from localStorage
     const token = localStorage.getItem("access_token");
-    if (!token) return; // only connect if user is logged in
+    if (!token) return;
 
-    // ✅ Connect WebSocket with token query param
-    ws.current = new WebSocket(`wss://13.203.202.165/ws/notifications/?token=${token}`);
+    // ✅ Load base URL from environment
+    const baseWS = import.meta.env.VITE_WS_BASE_URL;
+
+    // ✅ Append token as query param
+    ws.current = new WebSocket(`${baseWS}?token=${token}`);
 
     ws.current.onopen = () => console.log("✅ WebSocket connected");
 
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
-
-      // ✅ Mark new notification as unseen
       setHasNewNotification(true);
-
-      // ✅ Show toast notification
       toast.success(data.message || "You have a new notification!", {
         style: {
           background: "#1f1f1f",
@@ -38,7 +36,7 @@ export default function MainLayout() {
     ws.current.onclose = () => console.warn("❌ WebSocket closed");
     ws.current.onerror = (err) => console.error("⚠️ WebSocket error:", err);
 
-    return () => ws.current?.close(); // cleanup on unmount
+    return () => ws.current?.close();
   }, [setHasNewNotification]);
 
   return (

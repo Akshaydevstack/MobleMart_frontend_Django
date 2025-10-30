@@ -1,5 +1,7 @@
 import React from 'react'
 
+
+
 export default function BannerOfferslider() {
   return (
     <div className="bg-yellow-400 sticky top-16 z-[100] overflow-hidden">

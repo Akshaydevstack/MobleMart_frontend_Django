@@ -1,5 +1,23 @@
-# Logs
-logs
+# ========================================
+# 📁 Node & Build
+# ========================================
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# ========================================
+# ⚙️ Environment Variables
+# ========================================
+.env
+.env.*.local
+# Keep only .env.example (template)
+!.env.example
+
+# ========================================
+# 🪵 Logs
+# ========================================
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,18 +25,36 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
+# ========================================
+# 🧠 Editor & System Files
+# ========================================
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ========================================
+# 🚀 OS & Temporary Files
+# ========================================
+Thumbs.db
+*.tmp
+*.bak
+*.orig
+
+# ========================================
+# ⚙️ Vite & Build Cache
+# ========================================
+.vite/
+.cache/
+*.tsbuildinfo
+
+# ========================================
+# 🧱 Coverage & Reports (if you add testing)
+# ========================================
+coverage/
+*.lcov
