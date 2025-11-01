@@ -29,7 +29,6 @@ const PasswordResetConfirm = lazy(() => import("./pages/PasswordResetConfirm"));
 const EditProfilePage = lazy(() => import("./pages/EditProfilePage"));
 const UserNotifications = lazy(()=> import("./pages/UserNotifications"))
 
-
 // Admin pages
 const AdminDashboard = lazy(() => import("./AdminSection/AdminDashBoard"));
 const UserManagement = lazy(() => import("./AdminSection/pages/UserManagementPage"));
@@ -38,6 +37,9 @@ const OrderManagement = lazy(() => import("./AdminSection/pages/OrderManagementP
 const CartManagement = lazy(() => import("./AdminSection/pages/CartManagementPage"));
 const PushNotification = lazy(() => import("./AdminSection/pages/Pushnotification"));
 const BusinessAnalytics = lazy(() => import("./AdminSection/pages/BusinessAnalytics"));
+const BannerOffersManagement = lazy(() => import("./AdminSection/pages/BannerOffersManagementPage"));
+const CouponManagement = lazy(() => import("./AdminSection/pages/CouponManagementPage"));
+
 
 function App() {
   return (
@@ -62,6 +64,8 @@ function App() {
                   <Route path="/admin/CartManagement" element={<CartManagement />} />
                   <Route path="/admin/PushNotification" element={<PushNotification />} />
                   <Route path="/admin/BusinessAnalytics" element={<BusinessAnalytics />} />
+                  <Route path="/admin/BannerOffersManagement" element={<BannerOffersManagement />} />
+                  <Route path="/admin/CouponManagement" element={<CouponManagement />} />
                 </Route>
               </Route>
 

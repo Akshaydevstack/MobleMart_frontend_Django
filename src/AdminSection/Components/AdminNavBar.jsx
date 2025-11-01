@@ -10,6 +10,8 @@ import {
   ShoppingCart,
   Bell,
   BarChart2,
+  Tag,
+  Ticket 
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
@@ -57,6 +59,16 @@ export default function AdminNavbar() {
       path: "/admin/BusinessAnalytics",
       icon: <BarChart2 size={22} />,
       label: "BusinessAnalytics",
+    },
+    {
+      path: "/admin/BannerOffersManagement",
+      icon: <Tag size={22} />,
+      label: "Banner Offers",
+    },
+    {
+      path: "/admin/CouponManagement",
+      icon: <Ticket size={22} />,
+      label: "Coupons",
     },
   ];
 

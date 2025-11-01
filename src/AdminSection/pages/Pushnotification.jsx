@@ -39,8 +39,12 @@ export default function PushNotification() {
     const token = localStorage.getItem("access_token");
     if (!token) return; // only connect if logged in
 
-    ws.current = new WebSocket(`wss://13.203.202.165/ws/notifications/?token=${token}`);
+    // ✅ Load base URL from environment
+    const baseWS = import.meta.env.VITE_WS_BASE_URL;
 
+    // ✅ Append token as query param
+    ws.current = new WebSocket(`${baseWS}?token=${token}`);
+    
     ws.current.onopen = () => {
       console.log("✅ Connected to notifications WebSocket");
     };

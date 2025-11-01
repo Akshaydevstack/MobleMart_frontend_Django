@@ -51,7 +51,7 @@ export default function UserNotifications() {
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
-     const baseWS = import.meta.env.VITE_WS_BASE_URL;
+    const baseWS = import.meta.env.VITE_WS_BASE_URL;
 
     const socket = new WebSocket(`${baseWS}?token=${token}`);
 
